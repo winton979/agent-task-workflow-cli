@@ -307,9 +307,11 @@ Unrelated custom skills in the same project are left untouched. Inspect the curr
 
 ---
 
+something else:
+> Task CLI does not install Grill Me automatically.
+> Users remain free to choose any Grill Me compatible implementation, and the explore skills fall back to built-in clarification if none is installed.
+
 ## License
 
 MIT
 
-> Task CLI does not install Grill Me automatically.
-> Users remain free to choose any Grill Me compatible implementation, and the explore skills fall back to built-in clarification if none is installed.
