@@ -183,6 +183,7 @@ The workflow encourages the simplest acceptable implementation instead of the mo
 
 * `decision-log`
 * `decision-sweep-weekly`
+* `decision-curate`
 
 ---
 
@@ -191,6 +192,8 @@ The workflow encourages the simplest acceptable implementation instead of the mo
 Task CLI keeps a lightweight decision trail in `.ai/decisions/decisions.md`. Explore and fast-path skills should consult it before finalizing a brief, and pull in only the decisions that materially constrain the current task or bug.
 
 The decisions file is intentionally narrow. It holds durable project invariants and reusable constraints, not a running transcript of every local implementation choice.
+
+The default bias should be to skip writing. A decision should be logged only when leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path.
 
 ### Weekly Decision Sweep
 
@@ -202,7 +205,39 @@ Calling `/decision-log` after every task is easy to forget. As a lower-friction 
 
 The skill scans archived task and bug briefs from the past 7 days, judges which ones contain a decision worth keeping (cross-task impact, rejected alternatives, counter-intuitive choices, externally driven calls, or instructive cancellations), drafts the entries, and waits for confirmation before writing to `.ai/decisions/decisions.md`. When a draft overlaps with an existing decision, it presents both versions and asks whether to append, revise, merge, supersede, or skip.
 
-Use `decision-log` for in-the-moment recording and `decision-sweep-weekly` for periodic cleanup. Either alone is enough.
+### Decision Curation
+
+When the decisions file starts collecting stale, duplicate, or low-value entries, run:
+
+```
+/decision-curate
+```
+
+The skill audits the current decisions file, classifies entries as keep, tighten, merge, or remove, and waits for explicit confirmation before changing anything. Its job is to keep the file short enough that explore can still read it cheaply.
+
+Use `decision-log` for in-the-moment recording, `decision-sweep-weekly` for harvesting new durable constraints, and `decision-curate` for pruning old ones.
+
+---
+
+## Operational Boundaries
+
+Task CLI is most effective when `active/` stays personal, local, and small. In that operating model, the main scaling risk is not total bug or task count, but whether the long-lived context remains high-signal.
+
+Recommended working limits:
+
+* Per developer, keep local `active` briefs at `1-3`. At `4-5`, the agent starts paying more context-switching cost.
+* Total `archive` size can grow into the hundreds without becoming a primary problem, because normal flows do not re-read all historical briefs.
+* Keep `.ai/decisions/decisions.md` lean. Around `15-30` durable entries is comfortable. Once it grows past `30`, run `/decision-curate` regularly.
+* Weekly completed brief volume around `10-20` is still light for `decision-sweep-weekly`. Past `20-40`, expect more review effort to separate durable constraints from one-off noise.
+
+Red flags that the workflow is becoming an agent burden:
+
+* explore spends noticeable time filtering stale or irrelevant decisions
+* many archived briefs are too small or repetitive to justify their own long-term trace
+* weekly decision sweep produces mostly skip-worthy items
+* one developer keeps more than a few local active briefs open at once
+
+When those signals appear, the right response is usually to reduce noise in decisions and brief granularity, not to add more process.
 
 ---
 
@@ -265,7 +300,7 @@ task refresh
 This will:
 
 * keep `.ai/tasks`, `.ai/bugs`, and `.ai/decisions`
-* remove only managed skills from `.claude/skills/` and `.codex/skills/`: `task-fast`, `task-explore`, `task-implement`, `task-review`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-review`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`
+* remove only managed skills from `.claude/skills/` and `.codex/skills/`: `task-fast`, `task-explore`, `task-implement`, `task-review`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-review`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`, `decision-curate`
 * reinstall the latest versions of those skills
 
 Unrelated custom skills in the same project are left untouched. Inspect the current setup first with `task doctor`.

@@ -18,11 +18,13 @@ Workflow
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Evaluate each brief against the Sediment Conditions below.
 4. For each candidate, draft a decision entry using the four-section format.
-5. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
-6. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
-7. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
-8. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
-9. Report what was appended, revised, merged, superseded, and skipped.
+5. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to matter again.
+6. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
+7. For every skip, give a short reason such as one-off detail, already encoded in code, no future constraint, or still unsettled.
+8. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
+9. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
+10. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
+11. Report what was appended, revised, merged, superseded, and skipped.
 
 Sediment Conditions
 
@@ -33,12 +35,16 @@ A brief becomes a decision entry if it satisfies any of:
 * Counter-intuitive choice: code reads like an anti-pattern but is intentional.
 * Externally driven: compliance, performance, compatibility, or a third-party API limit forced the call.
 * A cancelled attempt whose failure is itself a useful conclusion.
+* Without the note, a future explore step would likely need to rediscover the same constraint.
 
 Skip Conditions
 
 * Affects only the implementation detail of one task.
 * A temporary or unsettled conclusion.
 * A bare fact with no decision behind it.
+* Already obvious from code, tests, tooling, or existing project structure.
+* A constraint that was later simplified away, optimized away, or otherwise stopped mattering.
+* Too vague to guide a future task.
 
 Entry Format
 

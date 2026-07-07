@@ -519,7 +519,26 @@ Purpose
 
 Record important implementation decisions.
 
-Only record decisions that are likely to matter beyond a single task. Good candidates are durable constraints, architecture boundaries, rejected alternatives someone may retry later, externally forced choices, and intentional behavior that otherwise looks incorrect.
+Selection Standard
+
+Bias toward not writing. A decision belongs here only when leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path.
+
+Record only durable constraints such as:
+
+* project invariants that will likely constrain future work
+* rejected alternatives someone could plausibly retry later
+* externally forced choices such as compatibility, compliance, vendor, or performance limits
+* intentional behavior that looks incorrect unless explained
+
+Do not record:
+
+* one-off implementation details
+* local cleanup notes or TODOs
+* temporary workarounds that are not yet accepted long-term behavior
+* facts already made obvious by code, tests, or tooling
+* constraints that disappeared after later simplification or optimization
+
+If unsure, skip the entry.
 
 Save Location
 
@@ -549,6 +568,8 @@ Requirements
 
 * Maximum 10 lines per decision
 * Default to append
+* Prefer fewer, harder decisions over broad coverage
+* One decision should capture one durable constraint, not a mixed summary
 * If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
 * Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
 * Only modify an existing entry after explicit user confirmation
@@ -579,11 +600,13 @@ Workflow
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Evaluate each brief against the Sediment Conditions below.
 4. For each candidate, draft a decision entry using the four-section format.
-5. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
-6. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
-7. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
-8. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
-9. Report what was appended, revised, merged, superseded, and skipped.
+5. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to matter again.
+6. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
+7. For every skip, give a short reason such as one-off detail, already encoded in code, no future constraint, or still unsettled.
+8. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
+9. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
+10. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
+11. Report what was appended, revised, merged, superseded, and skipped.
 
 Sediment Conditions
 
@@ -594,12 +617,16 @@ A brief becomes a decision entry if it satisfies any of:
 * Counter-intuitive choice: code reads like an anti-pattern but is intentional.
 * Externally driven: compliance, performance, compatibility, or a third-party API limit forced the call.
 * A cancelled attempt whose failure is itself a useful conclusion.
+* Without the note, a future explore step would likely need to rediscover the same constraint.
 
 Skip Conditions
 
 * Affects only the implementation detail of one task.
 * A temporary or unsettled conclusion.
 * A bare fact with no decision behind it.
+* Already obvious from code, tests, tooling, or existing project structure.
+* A constraint that was later simplified away, optimized away, or otherwise stopped mattering.
+* Too vague to guide a future task.
 
 Entry Format
 
@@ -627,6 +654,53 @@ Requirements
 * Default to append
 * One date section per day; multiple decisions on the same day stack under the same heading
 * Never edit, merge, supersede, or delete prior entries without explicit user confirmation
+`,
+  },
+
+  'decision-curate': {
+    name: 'decision-curate',
+    description: 'Audit .ai/decisions/decisions.md and propose removing, merging, or tightening stale, duplicate, or low-value entries. Only apply changes after explicit user confirmation.',
+    content: `---
+name: decision-curate
+description: Audit .ai/decisions/decisions.md and propose removing, merging, or tightening stale, duplicate, or low-value entries. Only apply changes after explicit user confirmation.
+user-invocable: true
+---
+
+Purpose
+
+Keep .ai/decisions/decisions.md narrow enough that future explore steps can read it quickly and trust that every surviving entry still matters.
+
+Workflow
+
+1. Read .ai/decisions/decisions.md.
+2. Inspect the current codebase only as needed to judge whether each decision still represents a live constraint.
+3. Classify each entry as keep, tighten, merge, or remove.
+4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices.
+5. Present a review list with every entry, its classification, and a short reason.
+6. When proposing tighten, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
+7. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
+8. After confirmation, apply only the approved edits and preserve unrelated entries.
+9. Summarize what was kept, tightened, merged, removed, and why.
+
+Retention Standard
+
+Keep an entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong.
+
+Removal Candidates
+
+* one-off implementation details
+* decisions already enforced clearly by code, tests, or tooling
+* duplicate or near-duplicate entries
+* vague notes that do not change future choices
+* constraints invalidated by later refactors, simplifications, or performance work
+* historical context that belongs in task or bug archives instead
+
+Requirements
+
+* Default to proposing, not editing
+* Never remove or rewrite an entry without explicit user confirmation
+* Prefer deleting low-value entries over rewriting them into longer prose
+* Keep the remaining file concise and high-signal
 `,
   },
 };
@@ -791,7 +865,7 @@ export function init(cwd, { fs, path, log }) {
   fast:  task-fast
   task:  task-explore -> task-implement -> task-review | task-cancel
   bug:   bug-explore -> bug-fix -> bug-review | bug-cancel
-  other: decision-log
+  other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
 }
 
@@ -826,7 +900,7 @@ export function refresh(cwd, { fs, path, log }) {
   fast:  task-fast
   task:  task-explore -> task-implement -> task-review | task-cancel
   bug:   bug-explore -> bug-fix -> bug-review | bug-cancel
-  other: decision-log
+  other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
 }
 
