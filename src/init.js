@@ -241,51 +241,88 @@ How acceptance criteria were satisfied.
 `,
   },
 
-  'task-review': {
-    name: 'task-review',
-    description: 'Review the latest task implementation against the corresponding task brief.',
+  'task-audit': {
+    name: 'task-audit',
+    description: 'Independently audit a completed task implementation against the task brief.',
     content: `---
-name: task-review
-description: Review the latest task implementation against the corresponding task brief.
+name: task-audit
+description: Independently audit a completed task implementation against the task brief. The objective is to find evidence of failure, not to justify the implementation.
 user-invocable: true
 ---
 
 Purpose
 
-Review implementation against the corresponding task brief.
+Perform an independent audit of a completed task implementation.
 
 Rules
 
 1. Use the latest matching brief from .ai/tasks/active/ or .ai/tasks/archive/.
-2. Review the actual changes, not just the intent.
+2. Inspect the actual implementation via final code and git diff.
+3. Use the least implementation context possible: task brief, final code, git diff, and existing tests.
+4. Ignore implementation reasoning from the current conversation.
+5. Do not prove the implementation correct. Try to invalidate it with evidence.
+6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
+7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
+8. Do not suggest unrelated improvements.
+9. Overall Result must be FAIL when any acceptance criterion is FAIL, or when a material UNKNOWN blocks approval.
+10. Overall Result may be PASS only when no significant evidence of failure exists.
 
-Evaluate
+Audit Phases
 
-1. Goal completion
-2. Acceptance criteria coverage
-3. Edge cases
-4. Maintainability
-5. Performance impact
-6. Security impact
-7. Regression risks
+1. Requirement coverage: for each acceptance criterion, mark PASS, FAIL, or UNKNOWN.
+2. Break attempt: construct edge cases, invalid inputs, and unexpected user actions that may violate the brief.
+3. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
+4. Engineering risk: check maintainability, unnecessary complexity, duplication, performance, memory, concurrency, and security.
+
+Severity
+
+Critical - Causes incorrect behavior or violates requirements.
+High - Likely production issue.
+Medium - Real issue with limited impact.
+Low - Concrete issue with low impact. Do not use Low for preferences.
 
 Output
 
-## Pass/Fail
+## Overall Result
 
-Overall assessment.
+PASS or FAIL
+
+## Acceptance Criteria
+
+| Criterion | Result | Evidence |
+|-----------|--------|----------|
 
 ## Findings
 
-Issues found.
+For every finding include:
 
-## Suggestions
+### Severity
 
-Optional improvements.
+Critical / High / Medium / Low
 
-## Missing Acceptance Criteria
+### Issue
 
-Anything not fully implemented.
+What is wrong.
+
+### Evidence
+
+Concrete code, diff, test result, or behavior supporting the finding.
+
+### Impact
+
+Why it matters.
+
+### Confidence
+
+High / Medium / Low
+
+## Unknowns
+
+Areas that cannot be verified from available information.
+
+## Final Assessment
+
+State whether approval is blocked and what remains risky.
 `,
   },
 
@@ -434,45 +471,93 @@ Verification performed.
 `,
   },
 
-  'bug-review': {
-    name: 'bug-review',
-    description: 'Review the latest bug fix against the corresponding bug brief.',
+  'bug-audit': {
+    name: 'bug-audit',
+    description: 'Independently audit a completed bug fix against the bug brief and root cause.',
     content: `---
-name: bug-review
-description: Review the latest bug fix against the corresponding bug brief.
+name: bug-audit
+description: Independently audit a completed bug fix against the bug brief and root cause. The objective is to find evidence of failure, not to justify the implementation.
 user-invocable: true
 ---
 
 Purpose
 
-Review implementation against the corresponding bug brief.
+Perform an independent audit of a completed bug fix.
 
 Rules
 
 1. Use the latest matching brief from .ai/bugs/active/ or .ai/bugs/archive/.
-2. Check whether the reported root cause was truly addressed.
+2. Inspect the actual fix via final code and git diff.
+3. Use the least implementation context possible: bug brief, final code, git diff, and existing tests.
+4. Ignore implementation reasoning from the current conversation.
+5. Do not prove the fix correct. Try to invalidate it with evidence.
+6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
+7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
+8. Do not suggest unrelated improvements.
+9. Overall Result must be FAIL when root cause validation is FAIL, any acceptance criterion is FAIL, or a material UNKNOWN blocks approval.
+10. Overall Result may be PASS only when no significant evidence of failure exists.
 
-Check
+Audit Phases
 
-1. Root cause addressed
-2. Regression risks
-3. Side effects
-4. Edge cases
-5. Test coverage
+1. Root cause validation: determine whether the confirmed or suspected root cause was actually eliminated.
+2. Acceptance criteria coverage: for each criterion, mark PASS, FAIL, or UNKNOWN.
+3. Break attempt: construct inputs or flows that reproduce the old bug or expose adjacent failures.
+4. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
+5. Engineering risk: check maintainability, unnecessary complexity, duplication, performance, memory, concurrency, and security.
+
+Severity
+
+Critical - Root cause not fixed or requirement violated.
+High - Likely production issue.
+Medium - Real issue with limited impact.
+Low - Concrete issue with low impact. Do not use Low for preferences.
 
 Output
 
-## Pass/Fail
+## Overall Result
 
-Assessment.
+PASS or FAIL
 
-## Risks
+## Root Cause Validation
 
-Potential issues.
+PASS / FAIL / UNKNOWN, with evidence.
 
-## Recommendations
+## Acceptance Criteria
 
-Further improvements.
+| Criterion | Result | Evidence |
+|-----------|--------|----------|
+
+## Findings
+
+For every finding include:
+
+### Severity
+
+Critical / High / Medium / Low
+
+### Issue
+
+What is wrong.
+
+### Evidence
+
+Concrete code, diff, test result, or behavior supporting the finding.
+
+### Impact
+
+Why it matters.
+
+### Confidence
+
+High / Medium / Low
+
+## Unknowns
+
+Areas that cannot be verified from available information.
+
+## Final Assessment
+
+State whether approval is blocked and what remains risky.
 `,
   },
 
@@ -705,7 +790,14 @@ Requirements
   },
 };
 
-const MANAGED_SKILL_NAMES = Object.values(SKILLS).map((skill) => skill.name);
+const LEGACY_MANAGED_SKILL_NAMES = [
+  'task-review',
+  'bug-review',
+];
+const MANAGED_SKILL_NAMES = [
+  ...Object.values(SKILLS).map((skill) => skill.name),
+  ...LEGACY_MANAGED_SKILL_NAMES,
+];
 
 function skillFilePath(path, cwd, skillRoot, skillName) {
   return path.join(cwd, skillRoot, skillName, 'SKILL.md');
@@ -863,8 +955,9 @@ export function init(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow initialized. Recommended flows:
   fast:  task-fast
-  task:  task-explore -> task-implement -> task-review | task-cancel
-  bug:   bug-explore -> bug-fix -> bug-review | bug-cancel
+  task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
+  bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
+  cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
 }
@@ -898,8 +991,9 @@ export function refresh(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   fast:  task-fast
-  task:  task-explore -> task-implement -> task-review | task-cancel
-  bug:   bug-explore -> bug-fix -> bug-review | bug-cancel
+  task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
+  bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
+  cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
 }
@@ -949,6 +1043,16 @@ export function doctor(cwd, { fs, path, log }) {
         `${skillRoot}/${skill.name}`,
         matches ? 'current' : 'outdated, run `task refresh`'
       );
+    }
+
+    for (const skillName of LEGACY_MANAGED_SKILL_NAMES) {
+      const legacySkillDir = path.join(cwd, skillRoot, skillName);
+      if (!fs.existsSync(legacySkillDir)) {
+        continue;
+      }
+
+      checks.push(false);
+      logCheck(log, false, `${skillRoot}/${skillName}`, 'legacy managed skill, run `task refresh`');
     }
   }
 

@@ -6,7 +6,7 @@ Task CLI separates requirement exploration from implementation, so AI agents dec
 
 **Explore** — Understand the problem. Assess whether additional complexity is warranted.
 **Implement** — Solve the accepted problem with the least necessary complexity.
-**Review** — Validate against the brief, not against new ideas introduced during coding.
+**Audit** — Independently try to find failure evidence when the risk justifies it.
 
 Designed for:
 
@@ -43,7 +43,9 @@ Brief
     ↓
 Implement  ──►  Simplest acceptable solution
     ↓
-Review  ──►  Validate against the brief
+Validation  ──►  Verify against the brief
+    ↓
+Audit  ──►  Optional, risk-triggered failure search
 ```
 
 Exploration and implementation are intentionally separated.
@@ -59,7 +61,8 @@ Most AI coding agents fail because they mix exploration and implementation in th
 | Explore                   | What problem are we solving?               |
 | Complexity Assessment     | Is additional complexity justified?        |
 | Implement                 | What is the simplest acceptable solution?  |
-| Review                    | Did we satisfy the brief?                  |
+| Validation                | Did the implementation satisfy the brief?  |
+| Audit                     | Can we find evidence that it fails?        |
 
 This keeps AI agents from over-designing solutions during requirement discovery, and keeps implementation focused on the accepted scope.
 
@@ -102,20 +105,26 @@ If no Grill Me compatible skill is installed, `task-fast`, `task-explore`, and `
     ↓
 clarify + brief + implement + validate
     ↓
-/task-review   or   /task-cancel
+archive automatically
 ```
 
 ### Larger Requirement
 
 ```text
-/task-explore  →  TASK_READY  →  /task-implement  →  /task-review  or  /task-cancel
+/task-explore  →  TASK_READY  →  /task-implement  →  optional /task-audit
 ```
 
 ### Bug Fix
 
 ```text
-/bug-explore  →  BUG_READY  →  /bug-fix  →  /bug-review  or  /bug-cancel
+/bug-explore  →  BUG_READY  →  /bug-fix  →  optional /bug-audit
 ```
+
+Use `/task-cancel` or `/bug-cancel` when abandoning the current attempt before accepting it.
+
+Run audit only when the risk is worth the extra pass, such as before a PR, after a large diff, when changing public APIs or core modules, when fixing production bugs, when security or data integrity is involved, or when the user explicitly asks for it.
+
+For the highest-value audit, start a fresh session or use a different reviewer context and provide only the brief, final code or git diff, and relevant tests. Audit quality comes from new perspective and evidence, not from asking the same context to approve its own work.
 
 ### CLI Commands
 
@@ -169,14 +178,14 @@ The workflow encourages the simplest acceptable implementation instead of the mo
 * `task-fast`
 * `task-explore`
 * `task-implement`
-* `task-review`
+* `task-audit`
 * `task-cancel`
 
 **Bug Workflow**
 
 * `bug-explore`
 * `bug-fix`
-* `bug-review`
+* `bug-audit`
 * `bug-cancel`
 
 **Decision Logging**
@@ -268,7 +277,7 @@ Detailed specification workflows such as OpenSpec can improve alignment, traceab
 
 The difficulty is that the same level of ceremony does not fit day-to-day engineering. For frequent bug fixes, small features, and fast iteration, the process becomes heavier than the change itself — maintenance overhead grows, documentation quality drifts, and teams gradually stop using the workflow as intended.
 
-Task CLI takes a narrower approach: clarify the requirement, capture only the minimum useful brief, execute against acceptance criteria, review the result, and keep a lightweight decision trail. The goal is a workflow people will actually keep using.
+Task CLI takes a narrower approach: clarify the requirement, capture only the minimum useful brief, execute and validate against acceptance criteria, run audit only when risk justifies it, and keep a lightweight decision trail. The goal is a workflow people will actually keep using.
 
 ---
 
@@ -284,7 +293,7 @@ Task CLI takes a narrower approach: clarify the requirement, capture only the mi
 **Tradeoffs**
 
 * less suitable for large cross-team initiatives that need formal design traceability
-* relies more on engineer judgment and review quality than a full spec process
+* relies more on engineer judgment and risk-triggered audit quality than a full spec process
 * stores less long-form historical context than a dedicated spec repository
 
 ---
@@ -300,7 +309,7 @@ task refresh
 This will:
 
 * keep `.ai/tasks`, `.ai/bugs`, and `.ai/decisions`
-* remove only managed skills from `.claude/skills/` and `.codex/skills/`: `task-fast`, `task-explore`, `task-implement`, `task-review`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-review`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`, `decision-curate`
+* remove only managed skills from `.claude/skills/` and `.codex/skills/`, including legacy `task-review` and `bug-review`, then reinstall the current set: `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`, `decision-curate`
 * reinstall the latest versions of those skills
 
 Unrelated custom skills in the same project are left untouched. Inspect the current setup first with `task doctor`.
