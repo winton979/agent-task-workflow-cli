@@ -82,17 +82,13 @@ task init
 
 After initialization, Task CLI creates the `.ai/` workspace and installs workflow skills into both `.claude/skills/` and `.codex/skills/`.
 
-### Prerequisites
+### Exploration Protocol
 
-Task CLI can use a Grill Me compatible skill for requirement and bug exploration.
+Task CLI embeds the `grilling` primitive from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git). Its wording is the methodological foundation for exploration, not a runtime dependency.
 
-Recommended:
+`task-explore` and `bug-explore` preserve the primitive's body verbatim. Their only workflow-specific interpretation of it is that "act on it" means creating the brief. `task-fast` uses a narrower clarification loop so the fast path remains fast.
 
-```bash
-npx add-skill PJ-SBN-593844/skill-grill-me
-```
-
-If no Grill Me compatible skill is installed, `task-fast`, `task-explore`, and `bug-explore` fall back to built-in clarification prompts.
+Task CLI neither requires nor installs a companion interviewing skill.
 
 ---
 
@@ -313,12 +309,6 @@ This will:
 * reinstall the latest versions of those skills
 
 Unrelated custom skills in the same project are left untouched. Inspect the current setup first with `task doctor`.
-
----
-
-something else:
-> Task CLI does not install Grill Me automatically.
-> Users remain free to choose any Grill Me compatible implementation, and the explore skills fall back to built-in clarification if none is installed.
 
 ## License
 

@@ -1,6 +1,6 @@
 ---
 name: task-explore
-description: Clarify a requirement and generate the execution brief in one step, without implementing.
+description: Grill the user relentlessly about a requirement; generate an execution brief only after shared understanding, without implementing.
 user-invocable: true
 ---
 
@@ -10,17 +10,25 @@ Clarify requirements and leave behind a ready-to-execute brief.
 
 Workflow
 
-1. If a Grill Me compatible skill is available in the current environment, use it for requirement exploration.
-2. If no Grill Me compatible skill is available, explore the requirement yourself through focused questions.
-3. Continue until the task is sufficiently understood.
-4. Do not write code.
-5. Do not create implementation details.
-6. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
-7. Once the requirement is clear, generate a concise task brief and save it to:
+1. Grill the requirement using the Grilling section below.
+2. Do not write code or create implementation details.
+3. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
+4. For this workflow, "act on it" means creating the brief.
+5. Generate a concise task brief and save it to:
 
 .ai/tasks/active/YYYY-MM-DD-task-name.md
 
-8. Show the saved brief and stop.
+6. Show the saved brief and stop.
+
+Grilling
+
+Interview me relentlessly about every aspect of this until we reach a shared understanding. Walk down each branch of the decision tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+
+Ask the questions one at a time, waiting for feedback on each question before continuing. Asking multiple questions at once is bewildering.
+
+If a *fact* can be found by exploring the environment (filesystem, tools, etc.), look it up rather than asking me. The *decisions*, though, are mine — put each one to me and wait for my answer.
+
+Do not act on it until I confirm we have reached a shared understanding.
 
 Decision Intake
 

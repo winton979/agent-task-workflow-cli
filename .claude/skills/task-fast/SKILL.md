@@ -10,23 +10,24 @@ Handle a small requirement in one continuous workflow with minimal ceremony.
 
 Workflow
 
-1. If a Grill Me compatible skill is available in the current environment, use it for requirement clarification.
-2. If no Grill Me compatible skill is available, clarify the requirement yourself with focused questions just far enough to remove ambiguity.
-3. Read the project code and conventions needed to avoid obvious conflicts.
-4. Read .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
-5. Before finalizing the brief, perform a Complexity Assessment.
-6. Create a concise task brief and save it to:
+1. Read the project code and conventions needed to avoid obvious conflicts.
+2. If a fact can be found by exploring the environment, look it up rather than asking the user.
+3. Ask only questions whose answers can change the implementation or acceptance criteria. Ask them one at a time, waiting for feedback on each before continuing. For each question, provide your recommended answer.
+4. Put unresolved decisions to the user; do not make them on the user's behalf.
+5. Read .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
+6. Before finalizing the brief, perform a Complexity Assessment.
+7. Create a concise task brief and save it to:
 
 .ai/tasks/active/YYYY-MM-DD-task-name.md
 
-7. Show the brief before coding.
-8. If the user does not object, implement immediately.
-9. Verify the result against the acceptance criteria.
-10. Archive the brief automatically by moving it to:
+8. Show the brief as the fast-path summary of shared understanding, ask the user to confirm it, and stop. Do not code until the user confirms.
+9. Once the user confirms the brief, implement immediately.
+10. Verify the result against the acceptance criteria.
+11. Archive the brief automatically by moving it to:
 
 .ai/tasks/archive/YYYY-MM-DD-task-name.md
 
-11. Summarize the outcome and any follow-up risks.
+12. Summarize the outcome and any follow-up risks.
 
 Decision Intake
 

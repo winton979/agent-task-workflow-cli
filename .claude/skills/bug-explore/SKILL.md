@@ -1,6 +1,6 @@
 ---
 name: bug-explore
-description: Investigate a bug and generate a fix brief in one step, without writing code.
+description: Grill the user relentlessly about a bug while investigating its evidence; generate a fix brief only after shared understanding, without writing code.
 user-invocable: true
 ---
 
@@ -10,24 +10,32 @@ Investigate a bug and leave behind a ready-to-fix brief.
 
 Rules
 
-1. If a Grill Me compatible skill is available in the current environment, use it for bug exploration.
-2. If no Grill Me compatible skill is available, ask focused questions and drive the investigation yourself.
-3. Do not write code.
-4. Do not suggest fixes before enough evidence exists.
-5. Identify root cause candidates.
-6. Request evidence whenever possible.
-7. Separate:
+1. Grill the bug using the Grilling section below.
+2. Investigate the bug and gather reproducible evidence. Do not write code or suggest fixes before enough evidence exists.
+3. Identify root cause candidates.
+4. Separate:
 
    * observed behavior
    * expected behavior
    * assumptions
 
-8. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
-9. Once the bug is sufficiently understood, generate a brief and save it to:
+5. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
+6. For this workflow, "act on it" means creating the brief.
+7. Generate a brief and save it to:
 
 .ai/bugs/active/YYYY-MM-DD-bug-name.md
 
-10. Show the saved brief and stop.
+8. Show the saved brief and stop.
+
+Grilling
+
+Interview me relentlessly about every aspect of this until we reach a shared understanding. Walk down each branch of the decision tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+
+Ask the questions one at a time, waiting for feedback on each question before continuing. Asking multiple questions at once is bewildering.
+
+If a *fact* can be found by exploring the environment (filesystem, tools, etc.), look it up rather than asking me. The *decisions*, though, are mine — put each one to me and wait for my answer.
+
+Do not act on it until I confirm we have reached a shared understanding.
 
 Decision Intake
 
