@@ -55,6 +55,15 @@ Before finalizing the brief, assess whether the requirement justifies added comp
   as a Risk, not a plan.
 * When complexity appears justified, do not design the solution here. Simply record that additional implementation effort is likely required.
 
+Cross-session Readiness
+
+Before finalizing the brief, assume implementation will start in a fresh session without the exploration conversation.
+
+* Record every confirmed user decision that materially constrains behavior, scope, compatibility, security, data handling, or acceptance.
+* Record material exclusions when omitting them could cause plausible scope expansion.
+* Do not copy repository facts the implementing agent can discover. Include only context needed to interpret the contract.
+* Do not output TASK_READY while a material user-owned decision remains unresolved.
+
 Task Brief Format
 
 # Goal
@@ -83,7 +92,9 @@ Clear success conditions.
 
 Requirements
 
-* Maximum 500 words
+* Aim for 500 words or fewer
+* Extend to at most 1000 words only when required to preserve execution-critical scope, constraints, risks, or acceptance criteria
+* If a coherent contract cannot fit within 1000 words, split the requirement and complete exploration for one independently executable task at a time
 * No code
 * No architecture design
 * Stay implementation-agnostic; describe constraints, not solutions
