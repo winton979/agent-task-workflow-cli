@@ -1,0 +1,7 @@
+interface:
+  display_name: "Project Explore"
+  short_description: "Explore existing projects from repository evidence"
+  default_prompt: "Use $project-explore to explain the current project from repository evidence."
+
+policy:
+  allow_implicit_invocation: false

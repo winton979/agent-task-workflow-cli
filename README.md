@@ -84,15 +84,26 @@ After initialization, Task CLI creates the `.ai/` workspace and installs workflo
 
 ### Exploration Protocol
 
-Task CLI embeds the `grilling` primitive from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git). Its wording is the methodological foundation for exploration, not a runtime dependency.
+Task CLI embeds the `grilling` primitive from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git). Its wording is the methodological foundation for decision-driven exploration, not a runtime dependency.
 
 `task-explore` and `bug-explore` preserve the primitive's body verbatim. Their only workflow-specific interpretation of it is that "act on it" means creating the brief. `task-fast` uses a narrower clarification loop so the fast path remains fast.
+
+`project-explore` is explicitly invoked, read-only, and evidence-driven. It answers when the available evidence supports a bounded conclusion and asks a question only when ambiguity would materially change the answer.
 
 Task CLI neither requires nor installs a companion interviewing skill.
 
 ---
 
 ## Quick Start
+
+### Project Understanding
+
+```text
+Claude Code: /project-explore
+Codex CLI:   $project-explore
+             ↓
+evidence-based explanation  →  no artifacts or changes
+```
 
 ### Small Feature / Enhancement
 
@@ -168,6 +179,10 @@ The workflow encourages the simplest acceptable implementation instead of the mo
 ---
 
 ## Available Skills
+
+**Project Understanding**
+
+* `project-explore`
 
 **Task Workflow**
 
@@ -305,7 +320,7 @@ task refresh
 This will:
 
 * keep `.ai/tasks`, `.ai/bugs`, and `.ai/decisions`
-* remove only managed skills from `.claude/skills/` and `.codex/skills/`, including legacy `task-review` and `bug-review`, then reinstall the current set: `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`, `decision-curate`
+* remove only managed skills from `.claude/skills/` and `.codex/skills/`, including legacy `task-review` and `bug-review`, then reinstall the current set: `project-explore`, `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel`, `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel`, `decision-log`, `decision-sweep-weekly`, `decision-curate`
 * reinstall the latest versions of those skills
 
 Unrelated custom skills in the same project are left untouched. Inspect the current setup first with `task doctor`.

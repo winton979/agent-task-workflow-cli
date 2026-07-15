@@ -25,6 +25,7 @@ Usage:
   task --help   Show this help
 
 Recommended flows after init:
+  explore: project-explore
   fast: task-fast
   task: task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:  bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)

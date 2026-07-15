@@ -48,7 +48,128 @@ Before finalizing the brief, assess whether the requirement justifies added comp
   as a Risk, not a plan.
 * When complexity appears justified, do not design the solution here. Simply record that additional implementation effort is likely required.`;
 
+const PROJECT_EXPLORE_DESCRIPTION = 'Build an evidence-based understanding of the existing project without changing it. Use only when the user explicitly invokes project-explore; do not use for implementation, bug investigation, or formal review.';
+const PROJECT_EXPLORE_BODY = `Purpose
+
+Establish a shared, evidence-based understanding of the existing project within the current conversation.
+
+Explain behavior, structure, design intent, constraints, and trade-offs. Do not create change work.
+
+Workflow
+
+1. Classify the user's primary intent. If it matches a case under Transitions, state the boundary and stop.
+2. Identify the question or project area to understand.
+3. Inspect the relevant code, tests, configuration, documentation, decisions, and repository history. Look up repository facts instead of asking the user for them.
+4. Build the answer from evidence. Separate:
+
+   * observed facts
+   * recorded intent
+   * inferred rationale
+   * assumptions and unknowns
+   * trade-offs
+
+5. Answer when the evidence supports a bounded conclusion. Do not prolong exploration to remove immaterial uncertainty.
+6. Ask one focused question at a time only when ambiguity would materially change the answer. Recommend an answer only for a user-owned choice.
+7. Stop when the question is answered or the remaining uncertainty is stated precisely.
+
+Evidence Discipline
+
+* Treat current code, tests, configuration, and direct observations as evidence of behavior.
+* Treat documentation, decisions, archives, and repository history as evidence of context or intent. Do not let them override contradictory current behavior.
+* Cite file paths and line numbers when practical.
+* Treat missing rationale as unknown. Do not infer that no rationale existed.
+* When sources conflict, report the conflict and identify which claim each source supports.
+* Do not treat unfamiliar design as defective. If evidence indicates incorrect behavior, label it as a possible issue rather than diagnosing it here.
+
+Decision Discussion
+
+When discussing a design choice:
+
+* identify the decision and its constraints
+* compare only relevant alternatives
+* state the benefits, costs, and assumptions of each alternative
+* recommend a direction only when the user explicitly requests a recommendation and the available evidence is sufficient
+
+Keep recommendations conceptual. Do not provide code, file-by-file changes, implementation steps, acceptance criteria, or estimates. Do not present exploration as architecture approval.
+
+Project Memory
+
+Before explaining a project decision, inspect .ai/decisions/decisions.md if it exists and contains entries beyond the title.
+
+Use it narrowly:
+
+* extract only decisions relevant to the question
+* treat them as durable constraints, not complete documentation
+* verify that current project evidence does not contradict them
+* omit unrelated history
+
+Transitions
+
+If the user's primary intent becomes:
+
+* new or changed behavior: recommend task-fast or task-explore
+* suspected incorrect behavior: recommend bug-explore
+* recording an approved durable decision: recommend decision-log
+* review of a completed task or bug with a brief: recommend task-audit or bug-audit
+* standalone architecture or quality review: state that no managed workflow covers it; do not issue findings, ratings, approval, or a release verdict
+
+After routing, stop. Do not inspect the project to fulfill the out-of-scope request. Do not invoke another workflow or create its artifacts unless the user explicitly requests it.
+
+Boundaries
+
+Do not:
+
+* modify code, documentation, or project state
+* create task, bug, or decision artifacts
+* design an implementation
+* perform a formal architecture review or audit
+* treat exploration findings as approved decisions
+
+Output
+
+Answer directly. Use only the sections that improve clarity:
+
+## Understanding
+
+## Evidence
+
+## Intent and Uncertainty
+
+## Trade-offs
+
+## Open Questions
+
+Omit empty sections. For a simple question, prefer concise prose without headings.
+`;
+
 const SKILLS = {
+  'project-explore': {
+    name: 'project-explore',
+    description: PROJECT_EXPLORE_DESCRIPTION,
+    content: `---
+name: project-explore
+description: ${PROJECT_EXPLORE_DESCRIPTION}
+user-invocable: true
+disable-model-invocation: true
+---
+
+${PROJECT_EXPLORE_BODY}`,
+    codexContent: `---
+name: project-explore
+description: ${PROJECT_EXPLORE_DESCRIPTION}
+---
+
+${PROJECT_EXPLORE_BODY}`,
+    codexAgentContent: `interface:
+  display_name: "Project Explore"
+  short_description: "Explore existing projects from repository evidence"
+  default_prompt: "Use $project-explore to explain the current project from repository evidence."
+
+policy:
+  allow_implicit_invocation: false
+`,
+  },
+
   'task-fast': {
     name: 'task-fast',
     description: 'Fast path for small requirements. Clarify quickly, create the brief, implement, and verify. Archive automatically on completion.',
@@ -804,8 +925,22 @@ const MANAGED_SKILL_NAMES = [
   ...LEGACY_MANAGED_SKILL_NAMES,
 ];
 
-function skillFilePath(path, cwd, skillRoot, skillName) {
-  return path.join(cwd, skillRoot, skillName, 'SKILL.md');
+function skillArtifacts(skillRoot, skill) {
+  const artifacts = [{
+    relativePath: 'SKILL.md',
+    content: skillRoot === CODEX_SKILLS_DIR && skill.codexContent
+      ? skill.codexContent
+      : skill.content,
+  }];
+
+  if (skillRoot === CODEX_SKILLS_DIR && skill.codexAgentContent) {
+    artifacts.push({
+      relativePath: 'agents/openai.yaml',
+      content: skill.codexAgentContent,
+    });
+  }
+
+  return artifacts;
 }
 
 function logCheck(log, ok, label, detail) {
@@ -839,18 +974,24 @@ function installSkills(fs, path, cwd, skillRoot, log) {
   ensureDir(fs, path, cwd, skillRoot, log);
   for (const skill of Object.values(SKILLS)) {
     const skillDir = path.join(cwd, skillRoot, skill.name);
-    const skillFile = skillFilePath(path, cwd, skillRoot, skill.name);
-
     if (!fs.existsSync(skillDir)) {
       fs.mkdirSync(skillDir, { recursive: true });
     }
 
-    if (!fs.existsSync(skillFile)) {
-      fs.writeFileSync(skillFile, skill.content);
-      log.chalk.green(`  ✓ ${skillRoot}/${skill.name}`);
-    } else {
-      log.chalk.dim(`  - ${skillRoot}/${skill.name} (exists)`);
+    let created = false;
+    for (const artifact of skillArtifacts(skillRoot, skill)) {
+      const artifactPath = path.join(skillDir, artifact.relativePath);
+      if (fs.existsSync(artifactPath)) {
+        continue;
+      }
+
+      fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
+      fs.writeFileSync(artifactPath, artifact.content);
+      created = true;
     }
+
+    const label = `${skillRoot}/${skill.name}`;
+    created ? log.chalk.green(`  ✓ ${label}`) : log.chalk.dim(`  - ${label} (exists)`);
   }
 }
 
@@ -916,6 +1057,7 @@ export function init(cwd, { fs, path, log }) {
   updateGitignore(fs, path, cwd, log);
 
   log.info(`\nTask workflow initialized. Recommended flows:
+  explore: project-explore
   fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
@@ -952,6 +1094,7 @@ export function refresh(cwd, { fs, path, log }) {
   updateGitignore(fs, path, cwd, log);
 
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
+  explore: project-explore
   fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
@@ -989,22 +1132,27 @@ export function doctor(cwd, { fs, path, log }) {
 
   for (const skillRoot of [CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR]) {
     for (const skill of Object.values(SKILLS)) {
-      const skillPath = skillFilePath(path, cwd, skillRoot, skill.name);
-      if (!fs.existsSync(skillPath)) {
-        checks.push(false);
-        logCheck(log, false, `${skillRoot}/${skill.name}`, 'missing');
-        continue;
-      }
+      for (const artifact of skillArtifacts(skillRoot, skill)) {
+        const artifactPath = path.join(cwd, skillRoot, skill.name, artifact.relativePath);
+        const label = artifact.relativePath === 'SKILL.md'
+          ? `${skillRoot}/${skill.name}`
+          : `${skillRoot}/${skill.name}/${artifact.relativePath}`;
+        if (!fs.existsSync(artifactPath)) {
+          checks.push(false);
+          logCheck(log, false, label, 'missing');
+          continue;
+        }
 
-      const content = fs.readFileSync(skillPath, 'utf-8');
-      const matches = content === skill.content;
-      checks.push(matches);
-      logCheck(
-        log,
-        matches,
-        `${skillRoot}/${skill.name}`,
-        matches ? 'current' : 'outdated, run `task refresh`'
-      );
+        const content = fs.readFileSync(artifactPath, 'utf-8');
+        const matches = content === artifact.content;
+        checks.push(matches);
+        logCheck(
+          log,
+          matches,
+          label,
+          matches ? 'current' : 'outdated, run `task refresh`'
+        );
+      }
     }
 
     for (const skillName of LEGACY_MANAGED_SKILL_NAMES) {
