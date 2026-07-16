@@ -121,7 +121,7 @@ archive automatically
 /task-explore  →  TASK_READY  →  /task-implement  →  optional /task-audit
 ```
 
-`task-explore` writes the brief for a fresh-session handoff. Briefs should stay within 500 words; they may extend to 1000 only when a shorter contract would omit execution-critical information. Requirements that still do not fit should be split before implementation.
+`task-explore` writes a brief that supports a fresh-session handoff when needed. Before `TASK_READY`, it checks that a new implementation session could determine the goal, acceptance criteria, material constraints, and exclusions from the brief alone. This is a readiness check, not a requirement to start implementation in a new session. The brief preserves confirmed execution-critical context without becoming a repository snapshot; the implementing agent revalidates current repository facts. Briefs should stay within 500 words; they may extend to 1000 only when a shorter contract would omit execution-critical information. Requirements that still do not fit should be split before implementation.
 
 When more than one active brief could match, identify the intended brief when invoking `task-implement`. The implementing agent rechecks repository facts and resolves local, reversible choices from existing conventions. It asks the user only for unresolved decisions that materially affect the contract, records confirmed narrow clarifications in the active brief, and returns material goal, scope, or acceptance changes to `task-explore`.
 

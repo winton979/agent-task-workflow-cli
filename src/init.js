@@ -280,11 +280,14 @@ ${COMPLEXITY_ASSESSMENT_GUIDANCE}
 
 Cross-session Readiness
 
-Before finalizing the brief, assume implementation will start in a fresh session without the exploration conversation.
+Before finalizing the brief, verify that it would be sufficient if implementation later began in a fresh session without the exploration conversation. This is a readiness check; implementation may proceed in the current session.
 
-* Record every confirmed user decision that materially constrains behavior, scope, compatibility, security, data handling, or acceptance.
+Complete this self-check before outputting TASK_READY:
+
+* A fresh implementation session can determine the Goal, Acceptance Criteria, material constraints, and material exclusions from the brief alone.
+* Record every confirmed user decision and other confirmed execution-critical context when omitting it could materially change implementation or validation. This includes material constraints on behavior, scope, compatibility, security, data handling, acceptance, or delivery.
 * Record material exclusions when omitting them could cause plausible scope expansion.
-* Do not copy repository facts the implementing agent can discover. Include only context needed to interpret the contract.
+* Do not turn the brief into a repository snapshot. Record repository facts only when needed to interpret a confirmed constraint; the implementing agent revalidates current facts.
 * Do not output TASK_READY while a material user-owned decision remains unresolved.
 
 Task Brief Format
