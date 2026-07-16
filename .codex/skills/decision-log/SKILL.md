@@ -1,12 +1,20 @@
 ---
 name: decision-log
-description: Record implementation decisions to .ai/decisions/decisions.md. Default to append; if updating an existing decision, require explicit user confirmation first. Max 10 lines per entry.
+description: Record durable decisions with scope and lifecycle metadata. Require explicit user confirmation before changing an existing decision.
 user-invocable: true
 ---
 
 Purpose
 
 Record important implementation decisions.
+
+Workflow
+
+1. Decide whether the candidate meets the Selection Standard.
+2. Draft a concise entry using the Entry Format and inspect related existing decisions.
+3. Show the draft and any overlap, conflict, or supersession to the user.
+4. Do NOT create or modify an entry yet. Wait for explicit user confirmation.
+5. After confirmation, append the approved new entry or apply only the approved change to an existing entry.
 
 Selection Standard
 
@@ -33,9 +41,15 @@ Save Location
 
 .ai/decisions/decisions.md
 
-Append Format
+Entry Format
 
-## YYYY-MM-DD
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: auth, api
+Applies when: all supported configurations
+Supersedes: -
+Superseded by: -
 
 ### Problem
 
@@ -55,11 +69,19 @@ What alternatives were rejected.
 
 Requirements
 
-* Maximum 10 lines per decision
-* Default to append
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* Status is active, superseded, or deprecated. Record only approved decisions; do not create drafts in this file
+* Scope uses concise, stable project-area terms. Use global only when a decision genuinely applies across the project
+* Applies when distinguishes versions, environments, clients, or other conditions when Scope alone is insufficient
+* Supersedes and Superseded by name a prior or successor DEC identifier, or - when there is none
+* Maximum 14 nonblank lines per decision
+* After confirmation, default to appending a new active entry
 * Prefer fewer, harder decisions over broad coverage
 * One decision should capture one durable constraint, not a mixed summary
 * If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
 * Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
+* After explicit confirmation to supersede, append the new active entry and update the prior entry's Status to superseded and Superseded by reference
+* If two active entries overlap and conflict, stop and ask the user to resolve, narrow Applies when, or supersede one; never choose automatically
 * Only modify an existing entry after explicit user confirmation
+* Legacy date-based entries remain valid historical context. Do not bulk-migrate them without a user request
 * Keep concise

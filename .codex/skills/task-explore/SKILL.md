@@ -36,10 +36,12 @@ Before finalizing the brief, inspect .ai/decisions/decisions.md if it exists and
 
 Use it narrowly:
 
-* extract only decisions that materially constrain this task
+* extract only active decisions whose Scope and Applies when fields materially constrain this task; use legacy entries without metadata under the same narrow relevance test
+* treat superseded and deprecated entries as history, not current constraints, unless the task explicitly needs that history
 * ignore unrelated historical notes
 * treat the file as a source of durable project invariants, not as a second specification
-* if relevant decisions exist, summarize them briefly in Context or Constraints instead of copying them verbatim
+* if relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation
+* if relevant decisions exist, summarize them briefly in Context or Constraints and list their identifiers in brief metadata instead of copying them verbatim
 
 Complexity Assessment
 
@@ -55,19 +57,45 @@ Before finalizing the brief, assess whether the requirement justifies added comp
   as a Risk, not a plan.
 * When complexity appears justified, do not design the solution here. Simply record that additional implementation effort is likely required.
 
-Cross-session Readiness
+Material Risk Assessment
 
-Before finalizing the brief, verify that it would be sufficient if implementation later began in a fresh session without the exploration conversation. This is a readiness check; implementation may proceed in the current session.
+Before finalizing the brief, consider whether repository evidence or the requirement makes any of these risks material:
 
-Complete this self-check before outputting TASK_READY:
+* compatibility or public API changes
+* data migration, integrity, or rollback
+* security or sensitive-data handling
+* performance, memory, or concurrency
+* release, deployment, or operational impact
 
-* A fresh implementation session can determine the Goal, Acceptance Criteria, material constraints, and material exclusions from the brief alone.
-* Record every confirmed user decision and other confirmed execution-critical context when omitting it could materially change implementation or validation. This includes material constraints on behavior, scope, compatibility, security, data handling, acceptance, or delivery.
-* Record material exclusions when omitting them could cause plausible scope expansion.
-* Do not turn the brief into a repository snapshot. Record repository facts only when needed to interpret a confirmed constraint; the implementing agent revalidates current facts.
-* Do not output TASK_READY while a material user-owned decision remains unresolved.
+Record only material risks or unknowns with their concrete consequence. Do not turn this into a mandatory checklist or prescribe an implementation.
+
+Brief Readiness
+
+Before presenting a brief for confirmation or outputting TASK_READY, verify that:
+
+* the Goal, Acceptance Criteria, material constraints, and material exclusions are sufficient for a fresh implementation session
+* every confirmed user decision and execution-critical context that could materially change implementation or validation is recorded
+* relevant active decisions do not conflict, and no material user-owned decision remains unresolved
+* remaining uncertainty is recorded as a Risk or does not block implementation
+
+Stop asking questions once these conditions hold. Do not turn the brief into a repository snapshot; the implementing agent revalidates current facts.
 
 Task Brief Format
+
+Optional Brief Metadata
+
+Place YAML frontmatter before the first content heading only when it improves retrieval or context selection:
+
+---
+areas: [auth]
+decisions: [DEC-20260716-token-storage]
+working_set: [src/auth, tests/auth]
+---
+
+* areas use the same stable project-area vocabulary as decision Scope
+* decisions lists only relevant active decision identifiers
+* working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
+* omit fields that have no value; legacy briefs without frontmatter remain valid
 
 # Goal
 
@@ -92,6 +120,10 @@ Potential pitfalls.
 # Acceptance Criteria
 
 Clear success conditions.
+
+# Revisions
+
+Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
 
 Requirements
 

@@ -12,17 +12,19 @@ Rules
 
 1. Use the latest matching brief from .ai/tasks/active/ or .ai/tasks/archive/.
 2. Inspect the actual implementation via final code and git diff.
-3. Use the least implementation context possible: task brief, final code, git diff, and existing tests.
-4. Ignore implementation reasoning from the current conversation.
-5. Do not prove the implementation correct. Try to invalidate it with evidence.
-6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
-7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
-8. Do not suggest unrelated improvements.
-9. Overall Result must be FAIL when any acceptance criterion is FAIL, or when a material UNKNOWN blocks approval.
-10. Overall Result may be PASS only when no significant evidence of failure exists.
+3. Begin with a brief-independent scan of the final code and diff. Read the brief only after recording unexpected behavior or scope changes.
+4. Use the least implementation context possible: task brief, final code, git diff, and existing tests.
+5. Ignore implementation reasoning from the current conversation.
+6. Do not prove the implementation correct. Try to invalidate it with evidence.
+7. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
+8. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
+9. Do not suggest unrelated improvements.
+10. Overall Result must be FAIL when any acceptance criterion is FAIL, or when a material UNKNOWN blocks approval.
+11. Overall Result may be PASS only when no significant evidence of failure exists.
 
 Audit Phases
 
+0. Unprompted diff scan: before reading the brief, identify behavior changes, unexpected scope, and suspicious changes from final code and git diff.
 1. Requirement coverage: for each acceptance criterion, mark PASS, FAIL, or UNKNOWN.
 2. Break attempt: construct edge cases, invalid inputs, and unexpected user actions that may violate the brief.
 3. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
@@ -40,6 +42,10 @@ Output
 ## Overall Result
 
 PASS or FAIL
+
+## Unprompted Diff Scan
+
+Behavior and scope changes observed before reading the brief.
 
 ## Acceptance Criteria
 

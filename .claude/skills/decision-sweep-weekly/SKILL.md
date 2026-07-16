@@ -1,6 +1,6 @@
 ---
 name: decision-sweep-weekly
-description: Weekly sweep of recent task and bug briefs to decide which deserve a decision-log entry. Proposes entries for confirmation before appending.
+description: Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.
 user-invocable: true
 ---
 
@@ -17,13 +17,13 @@ Workflow
 1. Scan briefs created in the last 7 days under .ai/tasks/archive/ and .ai/bugs/archive/. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Evaluate each brief against the Sediment Conditions below.
-4. For each candidate, draft a decision entry using the four-section format.
+4. For each candidate, draft a decision entry using the lifecycle metadata format.
 5. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to matter again.
 6. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
 7. For every skip, give a short reason such as one-off detail, already encoded in code, no future constraint, or still unsettled.
 8. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
 9. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
-10. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
+10. Only after confirmation, apply the approved action for each draft. Default to appending new active DEC entries oldest first; revise, merge, supersede, deprecate, or remove only when the user explicitly selects that action.
 11. Report what was appended, revised, merged, superseded, and skipped.
 
 Sediment Conditions
@@ -48,7 +48,13 @@ Skip Conditions
 
 Entry Format
 
-## YYYY-MM-DD
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: concise project areas
+Applies when: all supported configurations or a concrete condition
+Supersedes: -
+Superseded by: -
 
 ### Problem
 
@@ -68,7 +74,10 @@ What alternatives were rejected.
 
 Requirements
 
-* Maximum 10 lines per decision
-* Default to append
-* One date section per day; multiple decisions on the same day stack under the same heading
-* Never edit, merge, supersede, or delete prior entries without explicit user confirmation
+* Maximum 14 nonblank lines per decision
+* Default to appending new active entries
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
+* If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically
+* Legacy date-based entries remain valid. Do not bulk-migrate them without a user request
+* Never edit, merge, supersede, deprecate, or delete prior entries without explicit user confirmation

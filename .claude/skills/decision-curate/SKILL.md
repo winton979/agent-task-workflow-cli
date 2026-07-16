@@ -6,23 +6,24 @@ user-invocable: true
 
 Purpose
 
-Keep .ai/decisions/decisions.md narrow enough that future explore steps can read it quickly and trust that every surviving entry still matters.
+Keep .ai/decisions/decisions.md narrow enough that future exploration can find active constraints quickly and trace historical changes only when needed.
 
 Workflow
 
 1. Read .ai/decisions/decisions.md.
 2. Inspect the current codebase only as needed to judge whether each decision still represents a live constraint.
-3. Classify each entry as keep, tighten, merge, or remove.
-4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices.
+3. Classify each entry as keep active, tighten, supersede, deprecate, merge, or remove.
+4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices. Preserve a concise superseded entry when it explains an active decision's lineage.
 5. Present a review list with every entry, its classification, and a short reason.
-6. When proposing tighten, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
-7. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
-8. After confirmation, apply only the approved edits and preserve unrelated entries.
-9. Summarize what was kept, tightened, merged, removed, and why.
+6. Flag every pair of active entries whose Scope and Applies when conditions overlap but whose decisions conflict. Propose a resolution, a narrower applicability condition, or supersession.
+7. When proposing tighten, supersede, deprecate, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
+8. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
+9. After confirmation, apply only the approved edits and preserve unrelated entries.
+10. Summarize what was kept active, tightened, superseded, deprecated, merged, removed, and why.
 
 Retention Standard
 
-Keep an entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong.
+Keep an active entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong. Keep a superseded entry only when its link to an active successor explains material history.
 
 Removal Candidates
 
@@ -32,10 +33,12 @@ Removal Candidates
 * vague notes that do not change future choices
 * constraints invalidated by later refactors, simplifications, or performance work
 * historical context that belongs in task or bug archives instead
+* active entries with no Scope, no applicable condition where one is needed, or a conflict with another active entry
 
 Requirements
 
 * Default to proposing, not editing
 * Never remove or rewrite an entry without explicit user confirmation
 * Prefer deleting low-value entries over rewriting them into longer prose
+* Do not automatically add metadata to legacy entries; propose targeted migration only when it materially improves retrieval
 * Keep the remaining file concise and high-signal

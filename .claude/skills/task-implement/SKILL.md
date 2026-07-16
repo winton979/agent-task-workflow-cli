@@ -25,11 +25,22 @@ Brief Sufficiency
 Before changing code, and whenever implementation reveals an ambiguity, determine whether the selected brief remains executable against the current project state.
 
 * Investigate facts available from the repository or environment instead of asking the user.
+* Treat the brief as the confirmed desired contract and current code, tests, configuration, and direct observations as the source of current behavior. A difference between current behavior and the brief's Goal or Acceptance Criteria is normally the work to implement; surface a conflict only when current facts contradict the brief's recorded Context or Constraints.
+* Use optional working_set metadata as an initial investigation scope, not a whitelist. Expand it when evidence requires and record the reason in Context or Revisions.
 * For a local, reversible implementation choice that does not materially affect behavior, scope, compatibility, security, data, or acceptance, follow existing conventions and choose the simplest option.
 * Do not infer an unresolved user decision that materially affects those concerns. Ask one focused question at a time, include a recommended answer, and wait.
-* After explicit confirmation of a narrow clarification, record it in the selected active brief before continuing implementation.
+* If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
+* After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
 * If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not implement against an outdated brief.
 * If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.
+
+Current Decision Check
+
+Before changing code, inspect .ai/decisions/decisions.md when it contains real entries:
+
+* revalidate every decision identifier named in brief metadata
+* extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
+* if a referenced decision is inactive, missing, or contradicted by a newly relevant active decision, surface the conflict and do not choose a winner without user confirmation
 
 When making implementation decisions
 

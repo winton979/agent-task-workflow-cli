@@ -35,6 +35,8 @@ Evidence Discipline
 * Cite file paths and line numbers when practical.
 * Treat missing rationale as unknown. Do not infer that no rationale existed.
 * When sources conflict, report the conflict and identify which claim each source supports.
+* For a question about rationale, architecture, or trade-offs, do not conclude from the first matching file. When material evidence is available, corroborate across relevant categories such as defining code, callers or integration points, tests or configuration, and decisions or repository history.
+* Stop when the available sources corroborate a bounded conclusion, or state the conflict or Unknown precisely. Do not expand to unrelated areas or read the whole repository merely to eliminate immaterial uncertainty.
 * Do not treat unfamiliar design as defective. If evidence indicates incorrect behavior, label it as a possible issue rather than diagnosing it here.
 
 Decision Discussion
@@ -54,9 +56,11 @@ Before explaining a project decision, inspect .ai/decisions/decisions.md if it e
 
 Use it narrowly:
 
-* extract only decisions relevant to the question
-* treat them as durable constraints, not complete documentation
+* extract only active decisions whose Scope and Applies when fields are relevant; use legacy entries without metadata under the same narrow relevance test
+* treat superseded and deprecated entries as history, not current constraints, unless the question explicitly needs that history
+* treat active decisions as durable constraints, not complete documentation
 * verify that current project evidence does not contradict them
+* report conflicting active decisions rather than inferring precedence
 * omit unrelated history
 
 Transitions

@@ -29,10 +29,12 @@ Before finalizing the brief, inspect .ai/decisions/decisions.md if it exists and
 
 Use it narrowly:
 
-* extract only decisions that materially constrain this task
+* extract only active decisions whose Scope and Applies when fields materially constrain this task; use legacy entries without metadata under the same narrow relevance test
+* treat superseded and deprecated entries as history, not current constraints, unless the task explicitly needs that history
 * ignore unrelated historical notes
 * treat the file as a source of durable project invariants, not as a second specification
-* if relevant decisions exist, summarize them briefly in Context or Constraints instead of copying them verbatim`;
+* if relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation
+* if relevant decisions exist, summarize them briefly in Context or Constraints and list their identifiers in brief metadata instead of copying them verbatim`;
 
 const COMPLEXITY_ASSESSMENT_GUIDANCE = `Complexity Assessment
 
@@ -47,6 +49,52 @@ Before finalizing the brief, assess whether the requirement justifies added comp
 
   as a Risk, not a plan.
 * When complexity appears justified, do not design the solution here. Simply record that additional implementation effort is likely required.`;
+
+const MATERIAL_RISK_GUIDANCE = `Material Risk Assessment
+
+Before finalizing the brief, consider whether repository evidence or the requirement makes any of these risks material:
+
+* compatibility or public API changes
+* data migration, integrity, or rollback
+* security or sensitive-data handling
+* performance, memory, or concurrency
+* release, deployment, or operational impact
+
+Record only material risks or unknowns with their concrete consequence. Do not turn this into a mandatory checklist or prescribe an implementation.`;
+
+const BRIEF_READINESS_GUIDANCE = `Brief Readiness
+
+Before presenting a brief for confirmation or outputting TASK_READY, verify that:
+
+* the Goal, Acceptance Criteria, material constraints, and material exclusions are sufficient for a fresh implementation session
+* every confirmed user decision and execution-critical context that could materially change implementation or validation is recorded
+* relevant active decisions do not conflict, and no material user-owned decision remains unresolved
+* remaining uncertainty is recorded as a Risk or does not block implementation
+
+Stop asking questions once these conditions hold. Do not turn the brief into a repository snapshot; the implementing agent revalidates current facts.`;
+
+const BRIEF_METADATA_GUIDANCE = `Optional Brief Metadata
+
+Place YAML frontmatter before the first content heading only when it improves retrieval or context selection:
+
+---
+areas: [auth]
+decisions: [DEC-20260716-token-storage]
+working_set: [src/auth, tests/auth]
+---
+
+* areas use the same stable project-area vocabulary as decision Scope
+* decisions lists only relevant active decision identifiers
+* working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
+* omit fields that have no value; legacy briefs without frontmatter remain valid`;
+
+const CURRENT_DECISION_CHECK_GUIDANCE = `Current Decision Check
+
+Before changing code, inspect .ai/decisions/decisions.md when it contains real entries:
+
+* revalidate every decision identifier named in brief metadata
+* extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
+* if a referenced decision is inactive, missing, or contradicted by a newly relevant active decision, surface the conflict and do not choose a winner without user confirmation`;
 
 const PROJECT_EXPLORE_DESCRIPTION = 'Build an evidence-based understanding of the existing project without changing it. Use only when the user explicitly invokes project-explore; do not use for implementation, bug investigation, or formal review.';
 const PROJECT_EXPLORE_BODY = `Purpose
@@ -79,6 +127,8 @@ Evidence Discipline
 * Cite file paths and line numbers when practical.
 * Treat missing rationale as unknown. Do not infer that no rationale existed.
 * When sources conflict, report the conflict and identify which claim each source supports.
+* For a question about rationale, architecture, or trade-offs, do not conclude from the first matching file. When material evidence is available, corroborate across relevant categories such as defining code, callers or integration points, tests or configuration, and decisions or repository history.
+* Stop when the available sources corroborate a bounded conclusion, or state the conflict or Unknown precisely. Do not expand to unrelated areas or read the whole repository merely to eliminate immaterial uncertainty.
 * Do not treat unfamiliar design as defective. If evidence indicates incorrect behavior, label it as a possible issue rather than diagnosing it here.
 
 Decision Discussion
@@ -98,9 +148,11 @@ Before explaining a project decision, inspect .ai/decisions/decisions.md if it e
 
 Use it narrowly:
 
-* extract only decisions relevant to the question
-* treat them as durable constraints, not complete documentation
+* extract only active decisions whose Scope and Applies when fields are relevant; use legacy entries without metadata under the same narrow relevance test
+* treat superseded and deprecated entries as history, not current constraints, unless the question explicitly needs that history
+* treat active decisions as durable constraints, not complete documentation
 * verify that current project evidence does not contradict them
+* report conflicting active decisions rather than inferring precedence
 * omit unrelated history
 
 Transitions
@@ -191,24 +243,34 @@ Workflow
 4. Put unresolved decisions to the user; do not make them on the user's behalf.
 5. Read .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
 6. Before finalizing the brief, perform a Complexity Assessment.
-7. Create a concise task brief and save it to:
+7. Before asking for confirmation, perform a Brief Readiness check.
+8. Create a concise task brief and save it to:
 
 .ai/tasks/active/YYYY-MM-DD-task-name.md
 
-8. Show the brief as the fast-path summary of shared understanding, ask the user to confirm it, and stop. Do not code until the user confirms.
-9. Once the user confirms the brief, implement immediately.
-10. Verify the result against the acceptance criteria.
-11. Archive the brief automatically by moving it to:
+9. Show the brief as the fast-path summary of shared understanding, ask the user to confirm it, and stop. Do not code until the user confirms.
+10. Once the user confirms the brief, perform a Current Decision Check before changing code, then implement immediately.
+11. If implementation needs a narrow confirmed clarification, record it under Revisions. If it materially changes the Goal, accepted scope, or Acceptance Criteria, stop and require task-explore.
+12. Verify the result against the acceptance criteria.
+13. Archive the brief automatically by moving it to:
 
 .ai/tasks/archive/YYYY-MM-DD-task-name.md
 
-12. Summarize the outcome and any follow-up risks.
+14. Summarize the outcome and any follow-up risks.
 
 ${DECISIONS_READ_GUIDANCE}
 
 ${COMPLEXITY_ASSESSMENT_GUIDANCE}
 
+${MATERIAL_RISK_GUIDANCE}
+
+${BRIEF_READINESS_GUIDANCE}
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
+
 Task Brief Format
+
+${BRIEF_METADATA_GUIDANCE}
 
 # Goal
 
@@ -233,6 +295,10 @@ Potential pitfalls.
 # Acceptance Criteria
 
 Clear success conditions.
+
+# Revisions
+
+Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
 
 Requirements
 
@@ -278,19 +344,13 @@ ${DECISIONS_READ_GUIDANCE}
 
 ${COMPLEXITY_ASSESSMENT_GUIDANCE}
 
-Cross-session Readiness
+${MATERIAL_RISK_GUIDANCE}
 
-Before finalizing the brief, verify that it would be sufficient if implementation later began in a fresh session without the exploration conversation. This is a readiness check; implementation may proceed in the current session.
-
-Complete this self-check before outputting TASK_READY:
-
-* A fresh implementation session can determine the Goal, Acceptance Criteria, material constraints, and material exclusions from the brief alone.
-* Record every confirmed user decision and other confirmed execution-critical context when omitting it could materially change implementation or validation. This includes material constraints on behavior, scope, compatibility, security, data handling, acceptance, or delivery.
-* Record material exclusions when omitting them could cause plausible scope expansion.
-* Do not turn the brief into a repository snapshot. Record repository facts only when needed to interpret a confirmed constraint; the implementing agent revalidates current facts.
-* Do not output TASK_READY while a material user-owned decision remains unresolved.
+${BRIEF_READINESS_GUIDANCE}
 
 Task Brief Format
+
+${BRIEF_METADATA_GUIDANCE}
 
 # Goal
 
@@ -315,6 +375,10 @@ Potential pitfalls.
 # Acceptance Criteria
 
 Clear success conditions.
+
+# Revisions
+
+Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
 
 Requirements
 
@@ -362,11 +426,16 @@ Brief Sufficiency
 Before changing code, and whenever implementation reveals an ambiguity, determine whether the selected brief remains executable against the current project state.
 
 * Investigate facts available from the repository or environment instead of asking the user.
+* Treat the brief as the confirmed desired contract and current code, tests, configuration, and direct observations as the source of current behavior. A difference between current behavior and the brief's Goal or Acceptance Criteria is normally the work to implement; surface a conflict only when current facts contradict the brief's recorded Context or Constraints.
+* Use optional working_set metadata as an initial investigation scope, not a whitelist. Expand it when evidence requires and record the reason in Context or Revisions.
 * For a local, reversible implementation choice that does not materially affect behavior, scope, compatibility, security, data, or acceptance, follow existing conventions and choose the simplest option.
 * Do not infer an unresolved user decision that materially affects those concerns. Ask one focused question at a time, include a recommended answer, and wait.
-* After explicit confirmation of a narrow clarification, record it in the selected active brief before continuing implementation.
+* If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
+* After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
 * If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not implement against an outdated brief.
 * If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
 
 When making implementation decisions
 
@@ -410,17 +479,19 @@ Rules
 
 1. Use the latest matching brief from .ai/tasks/active/ or .ai/tasks/archive/.
 2. Inspect the actual implementation via final code and git diff.
-3. Use the least implementation context possible: task brief, final code, git diff, and existing tests.
-4. Ignore implementation reasoning from the current conversation.
-5. Do not prove the implementation correct. Try to invalidate it with evidence.
-6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
-7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
-8. Do not suggest unrelated improvements.
-9. Overall Result must be FAIL when any acceptance criterion is FAIL, or when a material UNKNOWN blocks approval.
-10. Overall Result may be PASS only when no significant evidence of failure exists.
+3. Begin with a brief-independent scan of the final code and diff. Read the brief only after recording unexpected behavior or scope changes.
+4. Use the least implementation context possible: task brief, final code, git diff, and existing tests.
+5. Ignore implementation reasoning from the current conversation.
+6. Do not prove the implementation correct. Try to invalidate it with evidence.
+7. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
+8. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
+9. Do not suggest unrelated improvements.
+10. Overall Result must be FAIL when any acceptance criterion is FAIL, or when a material UNKNOWN blocks approval.
+11. Overall Result may be PASS only when no significant evidence of failure exists.
 
 Audit Phases
 
+0. Unprompted diff scan: before reading the brief, identify behavior changes, unexpected scope, and suspicious changes from final code and git diff.
 1. Requirement coverage: for each acceptance criterion, mark PASS, FAIL, or UNKNOWN.
 2. Break attempt: construct edge cases, invalid inputs, and unexpected user actions that may violate the brief.
 3. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
@@ -438,6 +509,10 @@ Output
 ## Overall Result
 
 PASS or FAIL
+
+## Unprompted Diff Scan
+
+Behavior and scope changes observed before reading the brief.
 
 ## Acceptance Criteria
 
@@ -525,12 +600,13 @@ Rules
 
 1. Grill the bug using the Grilling section below.
 2. Investigate the bug and gather reproducible evidence. Do not write code or suggest fixes before enough evidence exists.
-3. Identify root cause candidates.
+3. Identify falsifiable root cause hypotheses. Do not call a cause confirmed without evidence that distinguishes it from alternatives.
 4. Separate:
 
    * observed behavior
    * expected behavior
    * assumptions
+   * hypotheses
 
 5. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
 6. For this workflow, "act on it" means creating the brief.
@@ -546,6 +622,8 @@ ${DECISIONS_READ_GUIDANCE}
 
 Bug Brief Format
 
+${BRIEF_METADATA_GUIDANCE}
+
 # Problem
 
 Observed issue.
@@ -554,13 +632,17 @@ Observed issue.
 
 Expected result.
 
-# Suspected Root Cause
-
-Most likely cause.
-
 # Evidence
 
-Supporting observations.
+Supporting observations, including what remains unknown.
+
+# Root Cause Hypotheses
+
+For each hypothesis, record supporting or contradicting evidence, Confidence (High / Medium / Low), and a discriminating check.
+
+# Confirmed Root Cause
+
+Include only when evidence distinguishes the cause from material alternatives. Otherwise state that no cause is confirmed.
 
 # Constraints
 
@@ -578,39 +660,42 @@ BUG_READY
 
   'bug-fix': {
     name: 'bug-fix',
-    description: 'Fix the latest active bug brief and validate the result. Archive automatically when complete.',
+    description: 'Fix a selected active bug brief and validate the result. Archive automatically when complete.',
     content: `---
 name: bug-fix
-description: Fix the latest active bug brief and validate the result. Archive automatically when complete.
+description: Fix a selected active bug brief and validate the result. Archive automatically when complete.
 user-invocable: true
 ---
 
 Purpose
 
-Fix a bug from the latest file in .ai/bugs/active/.
+Fix the intended bug from .ai/bugs/active/.
 
 Rules
 
-1. Read the latest relevant brief from .ai/bugs/active/.
-2. Minimize changes.
-3. Avoid unrelated refactoring.
-4. Fix root cause, not symptoms.
-5. Preserve existing behavior.
-6. Explain reasoning.
-7. Validate the fix before stopping.
-8. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
+1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
+2. Recheck current behavior and the brief's evidence before changing code.
+3. Minimize changes.
+4. Avoid unrelated refactoring.
+5. Correct a confirmed root cause rather than a symptom. When the brief has only hypotheses, do not report one as confirmed; validate the behavioral correction and state the remaining uncertainty.
+6. Preserve existing behavior.
+7. Explain reasoning.
+8. Validate the fix before stopping.
+9. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
 
 When making implementation decisions
 
 * Extend existing behavior before introducing new abstractions.
-* Prefer the smallest behavioral correction that resolves the confirmed root cause.
+* Prefer the smallest behavioral correction that resolves the confirmed root cause or, when no cause is confirmed, the accepted behavioral failure.
 * Introduce new dependencies only when existing project capabilities cannot reasonably solve the problem.
 
 Output
 
-## Root Cause
+## Cause Status
 
-Confirmed cause.
+Confirmed cause or unresolved hypotheses and confidence.
 
 ## Fix
 
@@ -625,10 +710,10 @@ Verification performed.
 
   'bug-audit': {
     name: 'bug-audit',
-    description: 'Independently audit a completed bug fix against the bug brief and root cause.',
+    description: 'Independently audit a completed bug fix against the bug brief and available cause evidence.',
     content: `---
 name: bug-audit
-description: Independently audit a completed bug fix against the bug brief and root cause. The objective is to find evidence of failure, not to justify the implementation.
+description: Independently audit a completed bug fix against the bug brief and available cause evidence. The objective is to find evidence of failure, not to justify the implementation.
 user-invocable: true
 ---
 
@@ -646,12 +731,12 @@ Rules
 6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
 7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
 8. Do not suggest unrelated improvements.
-9. Overall Result must be FAIL when root cause validation is FAIL, any acceptance criterion is FAIL, or a material UNKNOWN blocks approval.
+9. Overall Result must be FAIL when confirmed-cause validation is FAIL, any acceptance criterion is FAIL, or a material UNKNOWN blocks approval.
 10. Overall Result may be PASS only when no significant evidence of failure exists.
 
 Audit Phases
 
-1. Root cause validation: determine whether the confirmed or suspected root cause was actually eliminated.
+1. Cause and hypothesis validation: determine whether a confirmed cause was eliminated or whether the evidence supports the behavioral correction while a cause remains unconfirmed.
 2. Acceptance criteria coverage: for each criterion, mark PASS, FAIL, or UNKNOWN.
 3. Break attempt: construct inputs or flows that reproduce the old bug or expose adjacent failures.
 4. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
@@ -659,7 +744,7 @@ Audit Phases
 
 Severity
 
-Critical - Root cause not fixed or requirement violated.
+Critical - Confirmed root cause not fixed or requirement violated.
 High - Likely production issue.
 Medium - Real issue with limited impact.
 Low - Concrete issue with low impact. Do not use Low for preferences.
@@ -670,9 +755,9 @@ Output
 
 PASS or FAIL
 
-## Root Cause Validation
+## Cause and Hypothesis Validation
 
-PASS / FAIL / UNKNOWN, with evidence.
+PASS / FAIL / UNKNOWN, with evidence and any remaining uncertainty.
 
 ## Acceptance Criteria
 
@@ -745,16 +830,24 @@ BUG_CANCELLED
 
   'decision-log': {
     name: 'decision-log',
-    description: 'Record implementation decisions to .ai/decisions/decisions.md. Default to append; if updating an existing decision, require explicit user confirmation first. Max 10 lines per entry.',
+    description: 'Record durable decisions with scope and lifecycle metadata. Require explicit user confirmation before changing an existing decision.',
     content: `---
 name: decision-log
-description: Record implementation decisions to .ai/decisions/decisions.md. Default to append; if updating an existing decision, require explicit user confirmation first. Max 10 lines per entry.
+description: Record durable decisions with scope and lifecycle metadata. Require explicit user confirmation before changing an existing decision.
 user-invocable: true
 ---
 
 Purpose
 
 Record important implementation decisions.
+
+Workflow
+
+1. Decide whether the candidate meets the Selection Standard.
+2. Draft a concise entry using the Entry Format and inspect related existing decisions.
+3. Show the draft and any overlap, conflict, or supersession to the user.
+4. Do NOT create or modify an entry yet. Wait for explicit user confirmation.
+5. After confirmation, append the approved new entry or apply only the approved change to an existing entry.
 
 Selection Standard
 
@@ -781,9 +874,15 @@ Save Location
 
 .ai/decisions/decisions.md
 
-Append Format
+Entry Format
 
-## YYYY-MM-DD
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: auth, api
+Applies when: all supported configurations
+Supersedes: -
+Superseded by: -
 
 ### Problem
 
@@ -803,23 +902,31 @@ What alternatives were rejected.
 
 Requirements
 
-* Maximum 10 lines per decision
-* Default to append
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* Status is active, superseded, or deprecated. Record only approved decisions; do not create drafts in this file
+* Scope uses concise, stable project-area terms. Use global only when a decision genuinely applies across the project
+* Applies when distinguishes versions, environments, clients, or other conditions when Scope alone is insufficient
+* Supersedes and Superseded by name a prior or successor DEC identifier, or - when there is none
+* Maximum 14 nonblank lines per decision
+* After confirmation, default to appending a new active entry
 * Prefer fewer, harder decisions over broad coverage
 * One decision should capture one durable constraint, not a mixed summary
 * If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
 * Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
+* After explicit confirmation to supersede, append the new active entry and update the prior entry's Status to superseded and Superseded by reference
+* If two active entries overlap and conflict, stop and ask the user to resolve, narrow Applies when, or supersede one; never choose automatically
 * Only modify an existing entry after explicit user confirmation
+* Legacy date-based entries remain valid historical context. Do not bulk-migrate them without a user request
 * Keep concise
 `,
   },
 
   'decision-sweep-weekly': {
     name: 'decision-sweep-weekly',
-    description: 'Weekly sweep of recent task and bug briefs to decide which deserve a decision-log entry. Proposes entries for confirmation before appending.',
+    description: 'Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.',
     content: `---
 name: decision-sweep-weekly
-description: Weekly sweep of recent task and bug briefs to decide which deserve a decision-log entry. Proposes entries for confirmation before appending.
+description: Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.
 user-invocable: true
 ---
 
@@ -836,13 +943,13 @@ Workflow
 1. Scan briefs created in the last 7 days under .ai/tasks/archive/ and .ai/bugs/archive/. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Evaluate each brief against the Sediment Conditions below.
-4. For each candidate, draft a decision entry using the four-section format.
+4. For each candidate, draft a decision entry using the lifecycle metadata format.
 5. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to matter again.
 6. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
 7. For every skip, give a short reason such as one-off detail, already encoded in code, no future constraint, or still unsettled.
 8. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
 9. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
-10. Only after confirmation, apply the approved action for each draft. Default to appending new entries oldest first under the matching YYYY-MM-DD section heading; revise or merge only when the user explicitly selects that action.
+10. Only after confirmation, apply the approved action for each draft. Default to appending new active DEC entries oldest first; revise, merge, supersede, deprecate, or remove only when the user explicitly selects that action.
 11. Report what was appended, revised, merged, superseded, and skipped.
 
 Sediment Conditions
@@ -867,7 +974,13 @@ Skip Conditions
 
 Entry Format
 
-## YYYY-MM-DD
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: concise project areas
+Applies when: all supported configurations or a concrete condition
+Supersedes: -
+Superseded by: -
 
 ### Problem
 
@@ -887,10 +1000,13 @@ What alternatives were rejected.
 
 Requirements
 
-* Maximum 10 lines per decision
-* Default to append
-* One date section per day; multiple decisions on the same day stack under the same heading
-* Never edit, merge, supersede, or delete prior entries without explicit user confirmation
+* Maximum 14 nonblank lines per decision
+* Default to appending new active entries
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
+* If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically
+* Legacy date-based entries remain valid. Do not bulk-migrate them without a user request
+* Never edit, merge, supersede, deprecate, or delete prior entries without explicit user confirmation
 `,
   },
 
@@ -905,23 +1021,24 @@ user-invocable: true
 
 Purpose
 
-Keep .ai/decisions/decisions.md narrow enough that future explore steps can read it quickly and trust that every surviving entry still matters.
+Keep .ai/decisions/decisions.md narrow enough that future exploration can find active constraints quickly and trace historical changes only when needed.
 
 Workflow
 
 1. Read .ai/decisions/decisions.md.
 2. Inspect the current codebase only as needed to judge whether each decision still represents a live constraint.
-3. Classify each entry as keep, tighten, merge, or remove.
-4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices.
+3. Classify each entry as keep active, tighten, supersede, deprecate, merge, or remove.
+4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices. Preserve a concise superseded entry when it explains an active decision's lineage.
 5. Present a review list with every entry, its classification, and a short reason.
-6. When proposing tighten, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
-7. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
-8. After confirmation, apply only the approved edits and preserve unrelated entries.
-9. Summarize what was kept, tightened, merged, removed, and why.
+6. Flag every pair of active entries whose Scope and Applies when conditions overlap but whose decisions conflict. Propose a resolution, a narrower applicability condition, or supersession.
+7. When proposing tighten, supersede, deprecate, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
+8. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
+9. After confirmation, apply only the approved edits and preserve unrelated entries.
+10. Summarize what was kept active, tightened, superseded, deprecated, merged, removed, and why.
 
 Retention Standard
 
-Keep an entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong.
+Keep an active entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong. Keep a superseded entry only when its link to an active successor explains material history.
 
 Removal Candidates
 
@@ -931,12 +1048,14 @@ Removal Candidates
 * vague notes that do not change future choices
 * constraints invalidated by later refactors, simplifications, or performance work
 * historical context that belongs in task or bug archives instead
+* active entries with no Scope, no applicable condition where one is needed, or a conflict with another active entry
 
 Requirements
 
 * Default to proposing, not editing
 * Never remove or rewrite an entry without explicit user confirmation
 * Prefer deleting low-value entries over rewriting them into longer prose
+* Do not automatically add metadata to legacy entries; propose targeted migration only when it materially improves retrieval
 * Keep the remaining file concise and high-signal
 `,
   },

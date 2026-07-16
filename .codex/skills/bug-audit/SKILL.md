@@ -1,6 +1,6 @@
 ---
 name: bug-audit
-description: Independently audit a completed bug fix against the bug brief and root cause. The objective is to find evidence of failure, not to justify the implementation.
+description: Independently audit a completed bug fix against the bug brief and available cause evidence. The objective is to find evidence of failure, not to justify the implementation.
 user-invocable: true
 ---
 
@@ -18,12 +18,12 @@ Rules
 6. If evidence is unavailable, mark the area UNKNOWN instead of guessing.
 7. Run relevant tests when practical. If tests cannot be run, list that under Unknowns.
 8. Do not suggest unrelated improvements.
-9. Overall Result must be FAIL when root cause validation is FAIL, any acceptance criterion is FAIL, or a material UNKNOWN blocks approval.
+9. Overall Result must be FAIL when confirmed-cause validation is FAIL, any acceptance criterion is FAIL, or a material UNKNOWN blocks approval.
 10. Overall Result may be PASS only when no significant evidence of failure exists.
 
 Audit Phases
 
-1. Root cause validation: determine whether the confirmed or suspected root cause was actually eliminated.
+1. Cause and hypothesis validation: determine whether a confirmed cause was eliminated or whether the evidence supports the behavioral correction while a cause remains unconfirmed.
 2. Acceptance criteria coverage: for each criterion, mark PASS, FAIL, or UNKNOWN.
 3. Break attempt: construct inputs or flows that reproduce the old bug or expose adjacent failures.
 4. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
@@ -31,7 +31,7 @@ Audit Phases
 
 Severity
 
-Critical - Root cause not fixed or requirement violated.
+Critical - Confirmed root cause not fixed or requirement violated.
 High - Likely production issue.
 Medium - Real issue with limited impact.
 Low - Concrete issue with low impact. Do not use Low for preferences.
@@ -42,9 +42,9 @@ Output
 
 PASS or FAIL
 
-## Root Cause Validation
+## Cause and Hypothesis Validation
 
-PASS / FAIL / UNKNOWN, with evidence.
+PASS / FAIL / UNKNOWN, with evidence and any remaining uncertainty.
 
 ## Acceptance Criteria
 

@@ -12,12 +12,13 @@ Rules
 
 1. Grill the bug using the Grilling section below.
 2. Investigate the bug and gather reproducible evidence. Do not write code or suggest fixes before enough evidence exists.
-3. Identify root cause candidates.
+3. Identify falsifiable root cause hypotheses. Do not call a cause confirmed without evidence that distinguishes it from alternatives.
 4. Separate:
 
    * observed behavior
    * expected behavior
    * assumptions
+   * hypotheses
 
 5. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
 6. For this workflow, "act on it" means creating the brief.
@@ -43,12 +44,29 @@ Before finalizing the brief, inspect .ai/decisions/decisions.md if it exists and
 
 Use it narrowly:
 
-* extract only decisions that materially constrain this task
+* extract only active decisions whose Scope and Applies when fields materially constrain this task; use legacy entries without metadata under the same narrow relevance test
+* treat superseded and deprecated entries as history, not current constraints, unless the task explicitly needs that history
 * ignore unrelated historical notes
 * treat the file as a source of durable project invariants, not as a second specification
-* if relevant decisions exist, summarize them briefly in Context or Constraints instead of copying them verbatim
+* if relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation
+* if relevant decisions exist, summarize them briefly in Context or Constraints and list their identifiers in brief metadata instead of copying them verbatim
 
 Bug Brief Format
+
+Optional Brief Metadata
+
+Place YAML frontmatter before the first content heading only when it improves retrieval or context selection:
+
+---
+areas: [auth]
+decisions: [DEC-20260716-token-storage]
+working_set: [src/auth, tests/auth]
+---
+
+* areas use the same stable project-area vocabulary as decision Scope
+* decisions lists only relevant active decision identifiers
+* working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
+* omit fields that have no value; legacy briefs without frontmatter remain valid
 
 # Problem
 
@@ -58,13 +76,17 @@ Observed issue.
 
 Expected result.
 
-# Suspected Root Cause
-
-Most likely cause.
-
 # Evidence
 
-Supporting observations.
+Supporting observations, including what remains unknown.
+
+# Root Cause Hypotheses
+
+For each hypothesis, record supporting or contradicting evidence, Confidence (High / Medium / Low), and a discriminating check.
+
+# Confirmed Root Cause
+
+Include only when evidence distinguishes the cause from material alternatives. Otherwise state that no cause is confirmed.
 
 # Constraints
 
