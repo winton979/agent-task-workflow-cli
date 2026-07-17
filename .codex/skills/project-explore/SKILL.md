@@ -5,16 +5,17 @@ description: Build an evidence-based understanding of the existing project witho
 
 Purpose
 
-Establish a shared, evidence-based understanding of the existing project within the current conversation.
+Establish a bounded, evidence-based understanding of the existing project within the current conversation.
 
-Explain behavior, structure, design intent, constraints, and trade-offs. Do not create change work.
+Answer questions about current behavior, supported capabilities, structure, design intent, constraints, and trade-offs. Do not create change work.
 
 Workflow
 
 1. Classify the user's primary intent. If it matches a case under Transitions, state the boundary and stop.
-2. Identify the question or project area to understand.
-3. Inspect the relevant code, tests, configuration, documentation, decisions, and repository history. Look up repository facts instead of asking the user for them.
-4. Build the answer from evidence. Separate:
+2. Classify the question as one of: current behavior or support, structure or flow, design rationale or trade-off, or current constraint or decision.
+3. State the interpreted question and project area when the request is broad, loosely constrained, or uses ambiguous project terms. Do not imply exhaustive coverage.
+4. Inspect the relevant current code, tests, configuration, documentation, decisions, and repository history. Look up repository facts instead of asking the user for them.
+5. Build the answer from evidence. Separate:
 
    * observed facts
    * recorded intent
@@ -22,20 +23,38 @@ Workflow
    * assumptions and unknowns
    * trade-offs
 
-5. Answer when the evidence supports a bounded conclusion. Do not prolong exploration to remove immaterial uncertainty.
-6. Ask one focused question at a time only when ambiguity would materially change the answer. Recommend an answer only for a user-owned choice.
-7. Stop when the question is answered or the remaining uncertainty is stated precisely.
+6. Answer when the evidence supports a bounded conclusion. Do not prolong exploration to remove immaterial uncertainty.
+7. Ask one focused question at a time only when ambiguity remains after investigation and would materially change the answer. Do not ask the user to supply discoverable facts.
+8. Stop when the question is answered or the remaining uncertainty is stated precisely.
+
+Question Coverage
+
+Select evidence to fit the question. These are minimum investigation guides, not mechanical checklists:
+
+* current behavior or support: inspect the user-facing entry point or public interface, the relevant implementation, and an available test, configuration, or integration point
+* structure or flow: inspect the relevant entry point, core module, and its material integration point
+* design rationale or trade-off: inspect the defining code and corroborate it with other material evidence such as callers, tests, configuration, decisions, or repository history
+* current constraint or decision: inspect the current code or configuration that enforces it and any relevant active decision
+
+If the available evidence does not cover one of these areas, state the limitation. Do not make a supported-capability claim from a name, a comment, or a single isolated file.
+When multiple entry points or implementations plausibly match the question, inspect enough of them to distinguish global behavior from conditional or implementation-specific behavior.
 
 Evidence Discipline
 
 * Treat current code, tests, configuration, and direct observations as evidence of behavior.
 * Treat documentation, decisions, archives, and repository history as evidence of context or intent. Do not let them override contradictory current behavior.
-* Cite file paths and line numbers when practical.
-* Treat missing rationale as unknown. Do not infer that no rationale existed.
+* State central conclusions as observed facts or inferences. Cite the supporting paths and line numbers when practical.
+* If no supporting rationale is located after inspecting the relevant sources, state that no supporting rationale was located in the inspected sources. Treat the rationale as unknown; do not conclude that none exists.
 * When sources conflict, report the conflict and identify which claim each source supports.
 * For a question about rationale, architecture, or trade-offs, do not conclude from the first matching file. When material evidence is available, corroborate across relevant categories such as defining code, callers or integration points, tests or configuration, and decisions or repository history.
 * Stop when the available sources corroborate a bounded conclusion, or state the conflict or Unknown precisely. Do not expand to unrelated areas or read the whole repository merely to eliminate immaterial uncertainty.
 * Do not treat unfamiliar design as defective. If evidence indicates incorrect behavior, label it as a possible issue rather than diagnosing it here.
+
+Scope Discipline
+
+* A question about whether the existing project supports a capability is in scope, even when the answer may later inform a change.
+* Describe only the investigated project surface. For a broad project question, identify the relevant entry points, core modules, configuration or data boundaries, tests or integration points, and material areas not inspected when that context improves the answer.
+* Do not create a persistent repository map, present an explored surface as a complete architecture inventory, or carry conclusions into later work as approved decisions.
 
 Decision Discussion
 
@@ -71,7 +90,7 @@ If the user's primary intent becomes:
 * review of a completed task or bug with a brief: recommend task-audit or bug-audit
 * standalone architecture or quality review: state that no managed workflow covers it; do not issue findings, ratings, approval, or a release verdict
 
-After routing, stop. Do not inspect the project to fulfill the out-of-scope request. Do not invoke another workflow or create its artifacts unless the user explicitly requests it.
+After routing, stop. Do not inspect the project to fulfill the out-of-scope request, invoke another workflow, or create its artifacts. A workflow changes only when the user explicitly invokes it.
 
 Boundaries
 
@@ -80,6 +99,7 @@ Do not:
 * modify code, documentation, or project state
 * create task, bug, or decision artifacts
 * design an implementation
+* investigate a suspected defect, reproduce it, or identify its root cause
 * perform a formal architecture review or audit
 * treat exploration findings as approved decisions
 
@@ -87,14 +107,14 @@ Output
 
 Answer directly. Use only the sections that improve clarity:
 
-## Understanding
+## Answer
 
 ## Evidence
 
-## Intent and Uncertainty
+## Design Context
 
-## Trade-offs
+## Relevant Surface
 
-## Open Questions
+## Scope and Unknowns
 
-Omit empty sections. For a simple question, prefer concise prose without headings.
+For a broad request, state the interpreted scope before the answer. Omit empty sections. For a simple question, prefer concise prose without headings.
