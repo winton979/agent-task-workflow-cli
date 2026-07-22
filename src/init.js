@@ -7,6 +7,7 @@ const BUG_ACTIVE_DIR = '.ai/bugs/active';
 const BUG_ARCHIVE_DIR = '.ai/bugs/archive';
 const DECISIONS_FILE = '.ai/decisions/decisions.md';
 const WORKSPACE_FILE = 'workspace.yaml';
+const WORKSPACE_LOCAL_FILE = 'workspace.local.yaml';
 const WORKSPACE_VERSION = 1;
 const CLAUDE_SKILLS_DIR = '.claude/skills';
 const CODEX_SKILLS_DIR = '.codex/skills';
@@ -14,11 +15,12 @@ const GITIGNORE_BLOCK = [
   '# task workflow',
   '.ai/tasks/active/*.md',
   '.ai/bugs/active/*.md',
+  WORKSPACE_LOCAL_FILE,
 ].join('\n');
 
 const WORKSPACE_CONTEXT_GUIDANCE = `Workspace Context
 
-When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code. Also read workspace.local.yaml when present; its repository paths override the shared paths on the current machine.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
@@ -1224,8 +1226,17 @@ function updateGitignore(fs, path, cwd, log) {
     ? fs.readFileSync(gitignorePath, 'utf-8')
     : '';
 
-  if (existing.includes('# task workflow')) {
+  const rules = GITIGNORE_BLOCK.split('\n');
+  const missingRules = rules.filter((rule) => !existing.includes(rule));
+  if (missingRules.length === 0) {
     log.chalk.dim('  - .gitignore (task workflow block exists)');
+    return;
+  }
+
+  if (existing.includes('# task workflow')) {
+    const prefix = existing.trimEnd();
+    fs.writeFileSync(gitignorePath, `${prefix}\n${missingRules.join('\n')}\n`);
+    log.chalk.green('  ✓ .gitignore updated');
     return;
   }
 
@@ -1235,12 +1246,40 @@ function updateGitignore(fs, path, cwd, log) {
   log.chalk.green('  ✓ .gitignore updated');
 }
 
+function hasGitignoreRules(gitignore) {
+  return GITIGNORE_BLOCK.split('\n').every((rule) => gitignore.includes(rule));
+}
+
+function gitCommandSucceeds(args) {
+  try {
+    execFileSync('git', args, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function localWorkspaceIsTracked(path, cwd) {
+  return gitCommandSucceeds(['-C', cwd, 'ls-files', '--error-unmatch', '--', WORKSPACE_LOCAL_FILE]);
+}
+
+function localWorkspaceIsIgnored(path, cwd) {
+  if (!gitRootForDirectory(path, cwd)) {
+    return true;
+  }
+  return gitCommandSucceeds(['-C', cwd, 'check-ignore', '--no-index', '--quiet', '--', WORKSPACE_LOCAL_FILE]);
+}
+
 function workflowIsInitialized(fs, path, cwd) {
   return fs.existsSync(path.join(cwd, DECISIONS_FILE));
 }
 
 function workspacePath(path, cwd) {
   return path.join(cwd, WORKSPACE_FILE);
+}
+
+function localWorkspacePath(path, cwd) {
+  return path.join(cwd, WORKSPACE_LOCAL_FILE);
 }
 
 function normalizeRepositoryId(id) {
@@ -1316,6 +1355,59 @@ function writeWorkspace(fs, path, cwd, workspace) {
   fs.writeFileSync(workspacePath(path, cwd), `${JSON.stringify(workspace, null, 2)}\n`);
 }
 
+function validateLocalWorkspace(localWorkspace, workspace) {
+  if (!localWorkspace || typeof localWorkspace !== 'object' || Array.isArray(localWorkspace)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} must contain an object.`);
+  }
+  if (localWorkspace.version !== WORKSPACE_VERSION) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} must declare version ${WORKSPACE_VERSION}.`);
+  }
+  if (!localWorkspace.repositories || typeof localWorkspace.repositories !== 'object'
+    || Array.isArray(localWorkspace.repositories)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} must contain a repositories object.`);
+  }
+
+  const repositoryIds = new Set(workspace.repositories.map((repository) => repository.id));
+  for (const [id, repositoryPath] of Object.entries(localWorkspace.repositories)) {
+    if (!repositoryIds.has(id)) {
+      throw new Error(`${WORKSPACE_LOCAL_FILE} contains an unknown repository ID "${id}".`);
+    }
+    if (typeof repositoryPath !== 'string' || !repositoryPath.trim()) {
+      throw new Error(`${WORKSPACE_LOCAL_FILE} repository paths must be non-empty strings.`);
+    }
+  }
+
+  return localWorkspace;
+}
+
+function readLocalWorkspace(fs, path, cwd, workspace) {
+  const manifestPath = localWorkspacePath(path, cwd);
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+
+  let localWorkspace;
+  try {
+    localWorkspace = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  } catch (error) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} must use JSON-compatible YAML: ${error.message}`);
+  }
+
+  return validateLocalWorkspace(localWorkspace, workspace);
+}
+
+function writeLocalWorkspace(fs, path, cwd, workspace, localWorkspace) {
+  validateLocalWorkspace(localWorkspace, workspace);
+  fs.writeFileSync(localWorkspacePath(path, cwd), `${JSON.stringify(localWorkspace, null, 2)}\n`);
+}
+
+function resolvedWorkspaceRepositories(workspace, localWorkspace) {
+  return workspace.repositories.map((repository) => ({
+    ...repository,
+    path: localWorkspace?.repositories[repository.id] ?? repository.path,
+  }));
+}
+
 function canonicalPath(fs, path, targetPath) {
   return path.resolve(fs.realpathSync(targetPath));
 }
@@ -1367,8 +1459,11 @@ function workspaceRepository(path, workflowRoot, repositoryRoot, id, description
   return repository;
 }
 
-function hasRepositoryRoot(fs, path, cwd, workspace, repositoryRoot) {
-  return workspace.repositories.some((repository) => {
+function hasRepositoryRoot(fs, path, cwd, repositories, repositoryRoot, excludedId) {
+  return repositories.some((repository) => {
+    if (repository.id === excludedId) {
+      return false;
+    }
     const configuredPath = path.resolve(cwd, repository.path);
     if (!fs.existsSync(configuredPath) || !fs.statSync(configuredPath).isDirectory()) {
       return configuredPath === repositoryRoot;
@@ -1402,7 +1497,11 @@ export function addRepo(cwd, repositoryPath, options, { fs, path, log }) {
     }
   }
 
-  if (hasRepositoryRoot(fs, path, workflowRoot, workspace, repositoryRoot)) {
+  const localWorkspace = existingWorkspace
+    ? readLocalWorkspace(fs, path, workflowRoot, existingWorkspace)
+    : null;
+  const repositories = resolvedWorkspaceRepositories(workspace, localWorkspace);
+  if (hasRepositoryRoot(fs, path, workflowRoot, repositories, repositoryRoot)) {
     throw new Error(`Repository is already registered: ${repositoryRoot}`);
   }
 
@@ -1430,6 +1529,52 @@ export function addRepo(cwd, repositoryPath, options, { fs, path, log }) {
   }
 }
 
+export function bindRepo(cwd, id, repositoryPath, { fs, path, log }) {
+  if (!workflowIsInitialized(fs, path, cwd)) {
+    throw new Error('Task workflow is not initialized here. Run `task init` first.');
+  }
+
+  const workflowRoot = canonicalPath(fs, path, cwd);
+  const workspace = readWorkspace(fs, path, workflowRoot);
+  if (!workspace) {
+    throw new Error(`No ${WORKSPACE_FILE} found. Run \`task add-repo\` before binding a local repository path.`);
+  }
+
+  const repositoryId = normalizeRepositoryId(id);
+  if (!workspace.repositories.some((repository) => repository.id === repositoryId)) {
+    throw new Error(`Unknown workspace repository ID: ${id}`);
+  }
+  if (localWorkspaceIsTracked(path, workflowRoot)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} is tracked. Remove it from the Git index before binding a local repository path.`);
+  }
+  if (!localWorkspaceIsIgnored(path, workflowRoot)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} is not ignored. Run \`task refresh\`, then remove any later negating rule before binding a local repository path.`);
+  }
+
+  const repositoryRoot = resolveGitRepository(
+    fs,
+    path,
+    path.resolve(workflowRoot, repositoryPath)
+  );
+  const localWorkspace = readLocalWorkspace(fs, path, workflowRoot, workspace) || {
+    version: WORKSPACE_VERSION,
+    repositories: {},
+  };
+  const localPath = path.isAbsolute(repositoryPath)
+    ? repositoryRoot.split(path.sep).join('/')
+    : (path.relative(workflowRoot, repositoryRoot) || '.').split(path.sep).join('/');
+  localWorkspace.repositories[repositoryId] = localPath;
+
+  const repositories = resolvedWorkspaceRepositories(workspace, localWorkspace);
+  if (hasRepositoryRoot(fs, path, workflowRoot, repositories, repositoryRoot, repositoryId)) {
+    throw new Error(`Repository is already bound to another workspace repository: ${repositoryRoot}`);
+  }
+
+  writeLocalWorkspace(fs, path, workflowRoot, workspace, localWorkspace);
+  log.chalk.green(`  ✓ ${WORKSPACE_LOCAL_FILE}`);
+  log.info(`Bound repository ${repositoryId}: ${localWorkspace.repositories[repositoryId]}`);
+}
+
 export function listRepos(cwd, { fs, path, log }) {
   const workspace = readWorkspace(fs, path, cwd);
   if (!workspace) {
@@ -1437,12 +1582,14 @@ export function listRepos(cwd, { fs, path, log }) {
     return [];
   }
 
+  const localWorkspace = readLocalWorkspace(fs, path, cwd, workspace);
+  const repositories = resolvedWorkspaceRepositories(workspace, localWorkspace);
   log.info('Workspace repositories:');
-  for (const repository of workspace.repositories) {
+  for (const repository of repositories) {
     const description = repository.description ? ` - ${repository.description}` : '';
     log.info(`  ${repository.id}\t${repository.path}${description}`);
   }
-  return workspace.repositories;
+  return repositories;
 }
 
 function doctorWorkspace(fs, path, cwd, log) {
@@ -1452,10 +1599,16 @@ function doctorWorkspace(fs, path, cwd, log) {
   }
 
   let workspace;
+  let repositories;
   try {
     workspace = readWorkspace(fs, path, cwd);
+    const localWorkspace = readLocalWorkspace(fs, path, cwd, workspace);
+    repositories = resolvedWorkspaceRepositories(workspace, localWorkspace);
   } catch (error) {
-    logCheck(log, false, WORKSPACE_FILE, error.message);
+    const label = error.message.startsWith(WORKSPACE_LOCAL_FILE)
+      ? WORKSPACE_LOCAL_FILE
+      : WORKSPACE_FILE;
+    logCheck(log, false, label, error.message);
     return [false];
   }
 
@@ -1463,7 +1616,7 @@ function doctorWorkspace(fs, path, cwd, log) {
   logCheck(log, true, WORKSPACE_FILE, `version ${workspace.version}`);
   const registeredRoots = new Map();
 
-  for (const repository of workspace.repositories) {
+  for (const repository of repositories) {
     const label = `workspace repository ${repository.id}`;
     const configuredPath = path.resolve(cwd, repository.path);
     if (!fs.existsSync(configuredPath) || !fs.statSync(configuredPath).isDirectory()) {
@@ -1636,13 +1789,18 @@ export function doctor(cwd, { fs, path, log }) {
   const gitignore = fs.existsSync(gitignorePath)
     ? fs.readFileSync(gitignorePath, 'utf-8')
     : '';
-  const hasGitignoreBlock = gitignore.includes(GITIGNORE_BLOCK);
-  checks.push(hasGitignoreBlock);
+  const hasGitignoreBlock = hasGitignoreRules(gitignore);
+  const localWorkspaceIgnored = localWorkspaceIsIgnored(path, cwd);
+  const localWorkspaceTracked = localWorkspaceIsTracked(path, cwd);
+  const hasSafeLocalWorkspaceConfig = localWorkspaceIgnored && !localWorkspaceTracked;
+  checks.push(hasGitignoreBlock && hasSafeLocalWorkspaceConfig);
   logCheck(
     log,
-    hasGitignoreBlock,
+    hasGitignoreBlock && hasSafeLocalWorkspaceConfig,
     '.gitignore',
-    hasGitignoreBlock ? 'task workflow rules present' : 'missing task workflow rules'
+    hasGitignoreBlock && hasSafeLocalWorkspaceConfig
+      ? 'task workflow rules present'
+      : 'missing or ineffective task workflow rules'
   );
 
   checks.push(...doctorWorkspace(fs, path, cwd, log));

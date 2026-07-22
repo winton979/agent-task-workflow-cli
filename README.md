@@ -1,5 +1,7 @@
 # task-cli
 
+[简体中文](README.zh-CN.md)
+
 A lightweight workflow for AI-assisted development. It separates requirement exploration from implementation so an agent decides whether added complexity is justified before it starts coding.
 
 > Explore decides whether complexity is justified. Implement delivers the least complex acceptable solution.
@@ -36,7 +38,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` updates only task-cli-managed skills. It preserves tasks, bugs, decisions, `workspace.yaml`, and unrelated custom skills.
+`task refresh` updates only task-cli-managed skills. It preserves tasks, bugs, decisions, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
 
 ### Multi-Repository Workspaces
 
@@ -45,6 +47,7 @@ For a full-stack system split across repositories, initialize task-cli in the di
 ```bash
 task init
 task add-repo ../frontend --id frontend --description "Web application"
+task bind-repo frontend D:/work/acme/web-client
 task repos
 ```
 
@@ -60,7 +63,22 @@ The first `task add-repo` creates `workspace.yaml` and refreshes task-cli-manage
 }
 ```
 
-`workspace.yaml` uses JSON syntax, which is a YAML-compatible subset, so it stays dependency-free and can be safely versioned with the workflow root. Repository paths are relative to that root; keep related checkouts in a portable layout. `task doctor` reports missing, non-Git, duplicate, or non-root repository paths. `task init` alone does not create this file, so existing single-project workflows remain unchanged.
+`workspace.yaml` uses JSON syntax, which is a YAML-compatible subset, so it stays dependency-free and can be safely versioned with the workflow root. Repository paths are relative to that root; keep related checkouts in a portable layout. `task init` alone does not create this file, so existing single-project workflows remain unchanged.
+
+When an individual developer keeps repositories in a different layout, run `task bind-repo <id> <path>`. It writes an ignored `workspace.local.yaml` that maps repository IDs to local paths. A local path may be absolute or relative to the workflow root and overrides the shared default only on that machine.
+
+For a workflow initialized by an earlier task-cli version, run `task refresh` before the first binding so its `.gitignore` excludes the local file. `task bind-repo` refuses to write a local config that Git would track; remove any later `!workspace.local.yaml` rule first. If the file was already tracked, remove it from Git's index before binding.
+
+```json
+{
+  "version": 1,
+  "repositories": {
+    "frontend": "D:/work/acme/web-client"
+  }
+}
+```
+
+`task repos` and `task doctor` use the resolved paths. `task bind-repo` requires the path to be a Git repository root and rejects binding the same repository to more than one ID. `task doctor` reports missing, non-Git, duplicate, or non-root paths.
 
 The manifest is a context map, not an instruction to load every repository. Agents first identify the repositories relevant to the request, then record cross-repository working sets with repository-prefixed paths such as `frontend/src/auth`.
 
@@ -103,6 +121,7 @@ Use `task-audit` or `bug-audit` before a PR, after a large diff, for public APIs
 ```bash
 task init       # create the workspace and install managed skills
 task add-repo   # add a Git repository and enable workspace mode
+task bind-repo  # override a repository path for the current machine
 task repos      # list configured workspace repositories
 task refresh    # reinstall managed skills without changing .ai content
 task doctor     # check workspace state, skill versions, and gitignore rules
@@ -162,7 +181,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, and unrelated custom skills. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
 
 ## License
 

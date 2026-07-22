@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
-import { addRepo, doctor, init, listRepos, refresh } from './init.js';
+import { addRepo, bindRepo, doctor, init, listRepos, refresh } from './init.js';
 
 const cwd = process.cwd();
 const cmd = process.argv[2];
@@ -22,6 +22,8 @@ Usage:
   task init     Initialize task workflow in current directory
   task add-repo <path> [--id <id>] [--description <text>]
                 Add a Git repository to the current workflow workspace
+  task bind-repo <id> <path>
+                Override a workspace repository path on this machine
   task repos    List repositories in the current workflow workspace
   task refresh  Reinstall task-cli managed workflow skills
   task doctor   Check workflow setup and skill freshness
@@ -67,6 +69,15 @@ try {
         throw new Error('add-repo requires a repository path.');
       }
       addRepo(cwd, repoPath, parseAddRepoOptions(process.argv.slice(4)), { fs, path, log });
+      break;
+    }
+    case 'bind-repo': {
+      const id = process.argv[3];
+      const repoPath = process.argv[4];
+      if (!id || !repoPath || id.startsWith('--') || repoPath.startsWith('--')) {
+        throw new Error('bind-repo requires a repository ID and path.');
+      }
+      bindRepo(cwd, id, repoPath, { fs, path, log });
       break;
     }
     case 'repos':
