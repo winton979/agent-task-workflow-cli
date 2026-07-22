@@ -8,6 +8,16 @@ Purpose
 
 Handle a small requirement in one continuous workflow with minimal ceremony.
 
+Workspace Context
+
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+
+* Treat the manifest as an initial context map, not a request to scan every repository.
+* Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
+* For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
+* Run commands from the relevant repository directory. Do not assume a workflow-root Git diff represents changes in registered repositories.
+* A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.
+
 Workflow
 
 1. Read the project code and conventions needed to avoid obvious conflicts.
@@ -103,6 +113,7 @@ working_set: [src/auth, tests/auth]
 
 * areas use the same stable project-area vocabulary as decision Scope
 * decisions lists only relevant active decision identifiers
+* in a workspace, prefix working_set paths with a repository ID, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
 * working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
 * omit fields that have no value; legacy briefs without frontmatter remain valid
 

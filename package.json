@@ -1,7 +1,15 @@
 {
   "name": "@winton979/task-cli",
-  "version": "1.6.4",
-  "description": "Lightweight task workflow CLI for AI-assisted development",
+  "version": "1.7.0",
+  "description": "AI-assisted development workflow CLI for single and multi-repository projects",
+  "keywords": [
+    "ai",
+    "ai-coding-agent",
+    "claude-code",
+    "codex",
+    "developer-workflow",
+    "multi-repository"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,6 +22,9 @@
   "type": "module",
   "bin": {
     "task": "bin/task.js"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "files": [
     "bin",

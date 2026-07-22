@@ -8,6 +8,16 @@ Purpose
 
 Fix the intended bug from .ai/bugs/active/.
 
+Workspace Context
+
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+
+* Treat the manifest as an initial context map, not a request to scan every repository.
+* Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
+* For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
+* Run commands from the relevant repository directory. Do not assume a workflow-root Git diff represents changes in registered repositories.
+* A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.
+
 Rules
 
 1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.

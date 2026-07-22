@@ -27,6 +27,16 @@ Workflow
 7. Ask one focused question at a time only when ambiguity remains after investigation and would materially change the answer. Do not ask the user to supply discoverable facts.
 8. Stop when the question is answered or the remaining uncertainty is stated precisely.
 
+Workspace Context
+
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+
+* Treat the manifest as an initial context map, not a request to scan every repository.
+* Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
+* For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
+* Run commands from the relevant repository directory. Do not assume a workflow-root Git diff represents changes in registered repositories.
+* A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.
+
 Question Coverage
 
 Select evidence to fit the question. These are minimum investigation guides, not mechanical checklists:

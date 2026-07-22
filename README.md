@@ -8,9 +8,11 @@ A lightweight workflow for AI-assisted development. It separates requirement exp
 
 Use task-cli with Claude Code or Codex CLI when a mature codebase has frequent bug fixes and small-to-medium feature work. It keeps enough structure to clarify scope, validate outcomes, and retain durable decisions without maintaining large specifications.
 
-It is less suitable for initiatives that require formal cross-team design approval, long-lived specification traceability, a dedicated specification repository, or coordination across independent developer workspaces.
+It is less suitable for initiatives that require formal cross-team design approval, long-lived specification traceability, or coordination across independent developer workspaces. A single local workflow can cover a system split across related Git repositories.
 
-## Install
+## Install From npm
+
+[`@winton979/task-cli`](https://www.npmjs.com/package/@winton979/task-cli) requires Node.js 18 or later. The npm package page renders this README, including the multi-repository workspace workflow below.
 
 ```bash
 npm install -g @winton979/task-cli
@@ -25,6 +27,42 @@ task init
 ├── bugs/active and bugs/archive
 └── decisions/decisions.md
 ```
+
+### Upgrade an Existing Install
+
+```bash
+npm install -g @winton979/task-cli@latest
+task doctor
+task refresh
+```
+
+`task refresh` updates only task-cli-managed skills. It preserves tasks, bugs, decisions, `workspace.yaml`, and unrelated custom skills.
+
+### Multi-Repository Workspaces
+
+For a full-stack system split across repositories, initialize task-cli in the directory you will use as the shared agent workflow root. The existing `.ai/` directory keeps task, bug, and decision records there; configured repositories remain independent Git worktrees.
+
+```bash
+task init
+task add-repo ../frontend --id frontend --description "Web application"
+task repos
+```
+
+The first `task add-repo` creates `workspace.yaml` and refreshes task-cli-managed skills so the agent can use the repository map immediately. When the workflow root is itself a Git repository, it is registered automatically as `.` before the requested repository is added.
+
+```json
+{
+  "version": 1,
+  "repositories": [
+    { "id": "backend", "path": "." },
+    { "id": "frontend", "path": "../frontend", "description": "Web application" }
+  ]
+}
+```
+
+`workspace.yaml` uses JSON syntax, which is a YAML-compatible subset, so it stays dependency-free and can be safely versioned with the workflow root. Repository paths are relative to that root; keep related checkouts in a portable layout. `task doctor` reports missing, non-Git, duplicate, or non-root repository paths. `task init` alone does not create this file, so existing single-project workflows remain unchanged.
+
+The manifest is a context map, not an instruction to load every repository. Agents first identify the repositories relevant to the request, then record cross-repository working sets with repository-prefixed paths such as `frontend/src/auth`.
 
 ## Choose a Workflow
 
@@ -52,7 +90,7 @@ For a larger task, `task-explore` produces `TASK_READY` only when its brief coul
 
 `task-implement` rechecks repository facts and relevant current decisions. Current code, tests, configuration, and direct observations describe current behavior; a brief records the confirmed desired contract, while an archive is historical context. A difference between current behavior and the brief's Goal is normally the work to implement, not a contradiction. It follows existing conventions for local, reversible choices, asks about unresolved material decisions, and returns material changes to goal, scope, or acceptance criteria to exploration. When several active briefs could match, identify the intended one rather than relying on recency.
 
-New briefs may add optional YAML frontmatter for `areas`, relevant active `decisions`, and an evidence-based `working_set`. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
+New briefs may add optional YAML frontmatter for `areas`, relevant active `decisions`, and an evidence-based `working_set`. In a multi-repository workspace, prefix working-set paths with their repository ID, such as `frontend/src/auth`; older unprefixed metadata remains valid. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
 
 When the requirement indicates it, exploration records concrete compatibility, migration, data, security, performance, concurrency, release, or operational risks. It does not require an empty checklist for every small task.
 
@@ -64,6 +102,8 @@ Use `task-audit` or `bug-audit` before a PR, after a large diff, for public APIs
 
 ```bash
 task init       # create the workspace and install managed skills
+task add-repo   # add a Git repository and enable workspace mode
+task repos      # list configured workspace repositories
 task refresh    # reinstall managed skills without changing .ai content
 task doctor     # check workspace state, skill versions, and gitignore rules
 task --help
@@ -122,7 +162,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, and unrelated custom skills. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, and unrelated custom skills. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
 
 ## License
 

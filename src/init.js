@@ -1,10 +1,13 @@
 import chalk from 'chalk';
+import { execFileSync } from 'node:child_process';
 
 const TASK_ACTIVE_DIR = '.ai/tasks/active';
 const TASK_ARCHIVE_DIR = '.ai/tasks/archive';
 const BUG_ACTIVE_DIR = '.ai/bugs/active';
 const BUG_ARCHIVE_DIR = '.ai/bugs/archive';
 const DECISIONS_FILE = '.ai/decisions/decisions.md';
+const WORKSPACE_FILE = 'workspace.yaml';
+const WORKSPACE_VERSION = 1;
 const CLAUDE_SKILLS_DIR = '.claude/skills';
 const CODEX_SKILLS_DIR = '.codex/skills';
 const GITIGNORE_BLOCK = [
@@ -12,6 +15,16 @@ const GITIGNORE_BLOCK = [
   '.ai/tasks/active/*.md',
   '.ai/bugs/active/*.md',
 ].join('\n');
+
+const WORKSPACE_CONTEXT_GUIDANCE = `Workspace Context
+
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+
+* Treat the manifest as an initial context map, not a request to scan every repository.
+* Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
+* For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
+* Run commands from the relevant repository directory. Do not assume a workflow-root Git diff represents changes in registered repositories.
+* A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.`;
 
 const GRILLING_GUIDANCE = `Grilling
 
@@ -85,6 +98,7 @@ working_set: [src/auth, tests/auth]
 
 * areas use the same stable project-area vocabulary as decision Scope
 * decisions lists only relevant active decision identifiers
+* in a workspace, prefix working_set paths with a repository ID, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
 * working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
 * omit fields that have no value; legacy briefs without frontmatter remain valid`;
 
@@ -120,6 +134,8 @@ Workflow
 6. Answer when the evidence supports a bounded conclusion. Do not prolong exploration to remove immaterial uncertainty.
 7. Ask one focused question at a time only when ambiguity remains after investigation and would materially change the answer. Do not ask the user to supply discoverable facts.
 8. Stop when the question is answered or the remaining uncertainty is stated precisely.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
 
 Question Coverage
 
@@ -255,6 +271,8 @@ Purpose
 
 Handle a small requirement in one continuous workflow with minimal ceremony.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Workflow
 
 1. Read the project code and conventions needed to avoid obvious conflicts.
@@ -346,6 +364,8 @@ Purpose
 
 Clarify requirements and leave behind a ready-to-execute brief.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Workflow
 
 1. Grill the requirement using the Grilling section below.
@@ -429,6 +449,8 @@ Purpose
 
 Implement the intended task from .ai/tasks/active/.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Rules
 
 1. Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
@@ -494,6 +516,8 @@ user-invocable: true
 Purpose
 
 Perform an independent audit of a completed task implementation.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
 
 Rules
 
@@ -616,6 +640,8 @@ Purpose
 
 Investigate a bug and leave behind a ready-to-fix brief.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Rules
 
 1. Grill the bug using the Grilling section below.
@@ -691,6 +717,8 @@ Purpose
 
 Fix the intended bug from .ai/bugs/active/.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Rules
 
 1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
@@ -740,6 +768,8 @@ user-invocable: true
 Purpose
 
 Perform an independent audit of a completed bug fix.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
 
 Rules
 
@@ -1043,6 +1073,8 @@ Purpose
 
 Keep .ai/decisions/decisions.md narrow enough that future exploration can find active constraints quickly and trace historical changes only when needed.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Workflow
 
 1. Read .ai/decisions/decisions.md.
@@ -1179,6 +1211,13 @@ function removeManagedSkills(fs, path, cwd, skillRoot, log) {
   }
 }
 
+function reinstallManagedSkills(fs, path, cwd, log) {
+  removeManagedSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
+  removeManagedSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
+  installSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
+  installSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
+}
+
 function updateGitignore(fs, path, cwd, log) {
   const gitignorePath = path.join(cwd, '.gitignore');
   const existing = fs.existsSync(gitignorePath)
@@ -1194,6 +1233,271 @@ function updateGitignore(fs, path, cwd, log) {
   const next = prefix ? `${prefix}\n\n${GITIGNORE_BLOCK}\n` : `${GITIGNORE_BLOCK}\n`;
   fs.writeFileSync(gitignorePath, next);
   log.chalk.green('  ✓ .gitignore updated');
+}
+
+function workflowIsInitialized(fs, path, cwd) {
+  return fs.existsSync(path.join(cwd, DECISIONS_FILE));
+}
+
+function workspacePath(path, cwd) {
+  return path.join(cwd, WORKSPACE_FILE);
+}
+
+function normalizeRepositoryId(id) {
+  return typeof id === 'string' ? id.trim() : '';
+}
+
+function derivedRepositoryId(path, repositoryRoot) {
+  const name = path.basename(repositoryRoot).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return /^[a-z]/.test(name) ? name : `repo-${name || 'workspace'}`;
+}
+
+function validateWorkspace(workspace, path) {
+  if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) {
+    throw new Error(`${WORKSPACE_FILE} must contain an object.`);
+  }
+  if (workspace.version !== WORKSPACE_VERSION) {
+    throw new Error(`${WORKSPACE_FILE} must declare version ${WORKSPACE_VERSION}.`);
+  }
+  if (!Array.isArray(workspace.repositories) || workspace.repositories.length === 0) {
+    throw new Error(`${WORKSPACE_FILE} must contain at least one repository.`);
+  }
+
+  const repositoryIds = new Set();
+  const repositoryPaths = new Set();
+  for (const repository of workspace.repositories) {
+    const id = normalizeRepositoryId(repository?.id);
+    if (!/^[a-z][a-z0-9-]*$/.test(id)) {
+      throw new Error(`${WORKSPACE_FILE} repository IDs must use lowercase letters, numbers, and hyphens.`);
+    }
+    if (repositoryIds.has(id)) {
+      throw new Error(`${WORKSPACE_FILE} contains the repository ID "${id}" more than once.`);
+    }
+    repositoryIds.add(id);
+
+    if (typeof repository.path !== 'string' || !repository.path.trim() || path.isAbsolute(repository.path)) {
+      throw new Error(`${WORKSPACE_FILE} repository paths must be non-empty relative paths.`);
+    }
+    const normalizedPath = path.normalize(repository.path);
+    if (repositoryPaths.has(normalizedPath)) {
+      throw new Error(`${WORKSPACE_FILE} contains the repository path "${repository.path}" more than once.`);
+    }
+    repositoryPaths.add(normalizedPath);
+
+    if (repository.description !== undefined
+      && (typeof repository.description !== 'string' || !repository.description.trim())) {
+      throw new Error(`${WORKSPACE_FILE} repository descriptions must be non-empty strings when provided.`);
+    }
+  }
+
+  return workspace;
+}
+
+function readWorkspace(fs, path, cwd) {
+  const manifestPath = workspacePath(path, cwd);
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+
+  let workspace;
+  try {
+    workspace = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  } catch (error) {
+    throw new Error(`${WORKSPACE_FILE} must use JSON-compatible YAML: ${error.message}`);
+  }
+
+  return validateWorkspace(workspace, path);
+}
+
+function writeWorkspace(fs, path, cwd, workspace) {
+  validateWorkspace(workspace, path);
+  fs.writeFileSync(workspacePath(path, cwd), `${JSON.stringify(workspace, null, 2)}\n`);
+}
+
+function canonicalPath(fs, path, targetPath) {
+  return path.resolve(fs.realpathSync(targetPath));
+}
+
+function gitRootForDirectory(path, directory) {
+  try {
+    const output = execFileSync('git', ['-C', directory, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return path.resolve(output.trim());
+  } catch {
+    return null;
+  }
+}
+
+function resolveGitRepository(fs, path, candidatePath) {
+  if (!fs.existsSync(candidatePath)) {
+    throw new Error(`Repository path does not exist: ${candidatePath}`);
+  }
+  if (!fs.statSync(candidatePath).isDirectory()) {
+    throw new Error(`Repository path is not a directory: ${candidatePath}`);
+  }
+
+  const gitRoot = gitRootForDirectory(path, candidatePath);
+  if (!gitRoot) {
+    throw new Error(`Repository path is not inside a Git worktree: ${candidatePath}`);
+  }
+
+  return canonicalPath(fs, path, gitRoot);
+}
+
+function relativeRepositoryPath(path, workflowRoot, repositoryRoot) {
+  const relativePath = path.relative(workflowRoot, repositoryRoot) || '.';
+  if (path.isAbsolute(relativePath)) {
+    throw new Error('Repository must be on the same volume as the workflow root so it can use a portable relative path.');
+  }
+  return relativePath.split(path.sep).join('/');
+}
+
+function workspaceRepository(path, workflowRoot, repositoryRoot, id, description) {
+  const repository = {
+    id,
+    path: relativeRepositoryPath(path, workflowRoot, repositoryRoot),
+  };
+  if (description) {
+    repository.description = description;
+  }
+  return repository;
+}
+
+function hasRepositoryRoot(fs, path, cwd, workspace, repositoryRoot) {
+  return workspace.repositories.some((repository) => {
+    const configuredPath = path.resolve(cwd, repository.path);
+    if (!fs.existsSync(configuredPath) || !fs.statSync(configuredPath).isDirectory()) {
+      return configuredPath === repositoryRoot;
+    }
+
+    const configuredRoot = gitRootForDirectory(path, configuredPath);
+    return configuredRoot && canonicalPath(fs, path, configuredRoot) === repositoryRoot;
+  });
+}
+
+export function addRepo(cwd, repositoryPath, options, { fs, path, log }) {
+  if (!workflowIsInitialized(fs, path, cwd)) {
+    throw new Error('Task workflow is not initialized here. Run `task init` first.');
+  }
+
+  const workflowRoot = canonicalPath(fs, path, cwd);
+  const repositoryRoot = resolveGitRepository(fs, path, path.resolve(workflowRoot, repositoryPath));
+  const existingWorkspace = readWorkspace(fs, path, workflowRoot);
+  const isWorkspacePromotion = !existingWorkspace;
+  const workspace = existingWorkspace || {
+    version: WORKSPACE_VERSION,
+    repositories: [],
+  };
+
+  if (!existingWorkspace) {
+    const currentRepositoryRoot = gitRootForDirectory(path, workflowRoot);
+    if (currentRepositoryRoot && canonicalPath(fs, path, currentRepositoryRoot) === workflowRoot
+      && repositoryRoot !== workflowRoot) {
+      const rootId = derivedRepositoryId(path, workflowRoot);
+      workspace.repositories.push(workspaceRepository(path, workflowRoot, workflowRoot, rootId));
+    }
+  }
+
+  if (hasRepositoryRoot(fs, path, workflowRoot, workspace, repositoryRoot)) {
+    throw new Error(`Repository is already registered: ${repositoryRoot}`);
+  }
+
+  const id = normalizeRepositoryId(options.id || derivedRepositoryId(path, repositoryRoot));
+  if (!/^[a-z][a-z0-9-]*$/.test(id)) {
+    throw new Error('Repository ID must use lowercase letters, numbers, and hyphens, starting with a letter.');
+  }
+  if (workspace.repositories.some((repository) => repository.id === id)) {
+    throw new Error(`Repository ID is already registered: ${id}`);
+  }
+
+  const description = options.description?.trim();
+  if (options.description !== undefined && !description) {
+    throw new Error('Repository description cannot be empty.');
+  }
+
+  workspace.repositories.push(workspaceRepository(path, workflowRoot, repositoryRoot, id, description));
+  writeWorkspace(fs, path, workflowRoot, workspace);
+  log.chalk.green(`  ✓ ${WORKSPACE_FILE}`);
+  log.info(`Added repository ${id}: ${relativeRepositoryPath(path, workflowRoot, repositoryRoot)}`);
+
+  if (isWorkspacePromotion) {
+    log.info('\nRefreshing managed workflow skills for workspace context...');
+    reinstallManagedSkills(fs, path, workflowRoot, log);
+  }
+}
+
+export function listRepos(cwd, { fs, path, log }) {
+  const workspace = readWorkspace(fs, path, cwd);
+  if (!workspace) {
+    log.info(`No ${WORKSPACE_FILE} found. This workflow uses the existing single-project mode.`);
+    return [];
+  }
+
+  log.info('Workspace repositories:');
+  for (const repository of workspace.repositories) {
+    const description = repository.description ? ` - ${repository.description}` : '';
+    log.info(`  ${repository.id}\t${repository.path}${description}`);
+  }
+  return workspace.repositories;
+}
+
+function doctorWorkspace(fs, path, cwd, log) {
+  const manifestPath = workspacePath(path, cwd);
+  if (!fs.existsSync(manifestPath)) {
+    return [];
+  }
+
+  let workspace;
+  try {
+    workspace = readWorkspace(fs, path, cwd);
+  } catch (error) {
+    logCheck(log, false, WORKSPACE_FILE, error.message);
+    return [false];
+  }
+
+  const checks = [true];
+  logCheck(log, true, WORKSPACE_FILE, `version ${workspace.version}`);
+  const registeredRoots = new Map();
+
+  for (const repository of workspace.repositories) {
+    const label = `workspace repository ${repository.id}`;
+    const configuredPath = path.resolve(cwd, repository.path);
+    if (!fs.existsSync(configuredPath) || !fs.statSync(configuredPath).isDirectory()) {
+      checks.push(false);
+      logCheck(log, false, label, `missing at ${repository.path}`);
+      continue;
+    }
+
+    const gitRoot = gitRootForDirectory(path, configuredPath);
+    if (!gitRoot) {
+      checks.push(false);
+      logCheck(log, false, label, `not a Git worktree at ${repository.path}`);
+      continue;
+    }
+
+    const configuredRoot = canonicalPath(fs, path, configuredPath);
+    const actualRoot = canonicalPath(fs, path, gitRoot);
+    if (configuredRoot !== actualRoot) {
+      checks.push(false);
+      logCheck(log, false, label, `path must point to Git root (${repository.path})`);
+      continue;
+    }
+    if (registeredRoots.has(actualRoot)) {
+      checks.push(false);
+      logCheck(log, false, label, `duplicates ${registeredRoots.get(actualRoot)}`);
+      continue;
+    }
+
+    registeredRoots.set(actualRoot, repository.id);
+    checks.push(true);
+    logCheck(log, true, label, repository.path);
+  }
+
+  return checks;
 }
 
 export function init(cwd, { fs, path, log }) {
@@ -1250,10 +1554,7 @@ export function refresh(cwd, { fs, path, log }) {
   ensureFile(fs, path, decisionsPath, '# Decisions Log\n\n', log);
 
   log.info('\nRefreshing managed workflow skills...');
-  removeManagedSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
-  removeManagedSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
-  installSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
-  installSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
+  reinstallManagedSkills(fs, path, cwd, log);
 
   log.info('\nUpdating ignore rules...');
   updateGitignore(fs, path, cwd, log);
@@ -1343,6 +1644,8 @@ export function doctor(cwd, { fs, path, log }) {
     '.gitignore',
     hasGitignoreBlock ? 'task workflow rules present' : 'missing task workflow rules'
   );
+
+  checks.push(...doctorWorkspace(fs, path, cwd, log));
 
   const okCount = checks.filter(Boolean).length;
   const totalCount = checks.length;
