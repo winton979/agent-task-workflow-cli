@@ -1,12 +1,12 @@
 ---
-name: bug-fix
-description: Fix a selected active bug brief and validate the result. Archive automatically when complete.
+name: bug-plan
+description: Prepare a concrete, reviewable fix plan for a selected active bug brief without changing project files.
 user-invocable: true
 ---
 
 Purpose
 
-Fix the intended bug from .ai/bugs/active/.
+Prepare a concrete, reviewable preview of how bug-fix would correct a selected active bug brief. This is optional and does not create a workflow state.
 
 Workspace Context
 
@@ -21,13 +21,10 @@ When workspace.yaml exists at the workflow root, read its repository IDs, paths,
 Rules
 
 1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
-2. Recheck current behavior and the brief's evidence before changing code.
-3. Validate the fix before reporting it complete.
-4. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
-
-Optional Plan Handoff
-
-When the immediately preceding conversation includes a completed bug-plan result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.
+2. Recheck the brief's evidence and relevant current behavior before planning.
+3. Do not modify project files, the bug brief, decisions, or bug archives. Do not create a persistent plan artifact.
+4. An explicit user choice applies only to the current conversation.
+5. When no material choice remains unresolved, show the plan and stop.
 
 Fix Sufficiency
 
@@ -67,16 +64,18 @@ When making fix decisions
 
 Output
 
-## Cause Status
+## Recommended Fix
 
-Confirmed cause or unresolved hypotheses and confidence.
-
-## Fix
-
-Changes made.
-State an explicit user choice from a completed bug-plan only when one exists.
+State the confirmed evidence or cause status, relevant files or modules, intended correction, and important fix decisions. When the cause remains unconfirmed, state the discriminating checks before selecting a correction. Include an explicit user choice only when one exists.
 
 ## Validation
 
-Verification performed.
+State the reproduction, regression, and acceptance checks bug-fix should run.
 
+## Decision Needed
+
+Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
+
+When no material choice remains unresolved output:
+
+BUG_PLAN_READY

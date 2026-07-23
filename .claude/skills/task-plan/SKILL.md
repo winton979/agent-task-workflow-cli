@@ -1,12 +1,12 @@
 ---
-name: task-implement
-description: Implement a selected active task brief and validate it. Archive automatically when complete.
+name: task-plan
+description: Prepare a concrete, reviewable implementation plan for a selected active task brief without changing project files.
 user-invocable: true
 ---
 
 Purpose
 
-Implement the intended task from .ai/tasks/active/.
+Prepare a concrete, reviewable preview of how task-implement would satisfy a selected active task brief. This is optional and does not create a workflow state.
 
 Workspace Context
 
@@ -22,12 +22,9 @@ Rules
 
 1. Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
 2. Read the selected brief and inspect the relevant current code before planning.
-3. Validate the result before reporting the work complete.
-4. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
-
-Optional Plan Handoff
-
-When the immediately preceding conversation includes a completed task-plan result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.
+3. Do not modify project files, the task brief, decisions, or task archives. Do not create a persistent plan artifact.
+4. An explicit user choice applies only to the current conversation.
+5. When no material choice remains unresolved, show the plan and stop.
 
 Brief Sufficiency
 
@@ -41,8 +38,6 @@ Before planning or changing code, and whenever planning or implementation reveal
 * If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
 * If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not continue against an outdated brief.
 * If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.
-
-When implementation expands the working set, record the reason in the selected active brief's Context or Revisions. After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
 
 Current Decision Check
 
@@ -70,16 +65,18 @@ When making implementation decisions
 
 Output
 
-## Plan
+## Recommended Implementation
 
-Short implementation plan.
-State an explicit user choice from a completed task-plan only when one exists.
-
-## Changes
-
-Files modified.
+List only the relevant files or modules, intended changes, important implementation decisions, and why the approach follows current project conventions. Include an explicit user choice only when one exists.
 
 ## Validation
 
-How acceptance criteria were satisfied.
+State the checks task-implement should run to demonstrate the acceptance criteria.
 
+## Decision Needed
+
+Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
+
+When no material choice remains unresolved output:
+
+TASK_PLAN_READY

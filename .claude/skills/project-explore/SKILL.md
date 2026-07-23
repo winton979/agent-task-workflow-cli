@@ -31,7 +31,7 @@ Workflow
 
 Workspace Context
 
-When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code. Also read workspace.local.yaml when present; its repository paths override the shared paths on the current machine.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.

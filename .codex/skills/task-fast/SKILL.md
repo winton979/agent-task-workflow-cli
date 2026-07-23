@@ -10,7 +10,7 @@ Handle a small requirement in one continuous workflow with minimal ceremony.
 
 Workspace Context
 
-When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code.
+When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code. Also read workspace.local.yaml when present; its repository paths override the shared paths on the current machine.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
@@ -93,7 +93,7 @@ Stop asking questions once these conditions hold. Do not turn the brief into a r
 
 Current Decision Check
 
-Before changing code, inspect .ai/decisions/decisions.md when it contains real entries:
+Before planning or changing code, inspect .ai/decisions/decisions.md when it contains real entries:
 
 * revalidate every decision identifier named in brief metadata
 * extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
@@ -101,9 +101,9 @@ Before changing code, inspect .ai/decisions/decisions.md when it contains real e
 
 Task Brief Format
 
-Optional Brief Metadata
+Brief Metadata
 
-Place YAML frontmatter before the first content heading only when it improves retrieval or context selection:
+Before saving a new brief, identify evidence-backed values for areas, relevant active decisions, and the working set. When one or more values exist, YAML frontmatter MUST appear before the first content heading. Do not omit frontmatter merely because some fields have no value:
 
 ---
 areas: [auth]
@@ -113,9 +113,10 @@ working_set: [src/auth, tests/auth]
 
 * areas use the same stable project-area vocabulary as decision Scope
 * decisions lists only relevant active decision identifiers
-* in a workspace, prefix working_set paths with a repository ID, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
+* for work that spans workspace repositories, working_set must list repository-ID-prefixed paths, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
 * working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
-* omit fields that have no value; legacy briefs without frontmatter remain valid
+* omit fields that have no value; do not add empty placeholders
+* omit frontmatter only when none of these fields has an evidence-backed value; legacy briefs without frontmatter remain valid
 
 # Goal
 

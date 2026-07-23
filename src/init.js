@@ -88,9 +88,9 @@ Before presenting a brief for confirmation or outputting TASK_READY, verify that
 
 Stop asking questions once these conditions hold. Do not turn the brief into a repository snapshot; the implementing agent revalidates current facts.`;
 
-const BRIEF_METADATA_GUIDANCE = `Optional Brief Metadata
+const BRIEF_METADATA_GUIDANCE = `Brief Metadata
 
-Place YAML frontmatter before the first content heading only when it improves retrieval or context selection:
+Before saving a new brief, identify evidence-backed values for areas, relevant active decisions, and the working set. When one or more values exist, YAML frontmatter MUST appear before the first content heading. Do not omit frontmatter merely because some fields have no value:
 
 ---
 areas: [auth]
@@ -100,17 +100,86 @@ working_set: [src/auth, tests/auth]
 
 * areas use the same stable project-area vocabulary as decision Scope
 * decisions lists only relevant active decision identifiers
-* in a workspace, prefix working_set paths with a repository ID, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
+* for work that spans workspace repositories, working_set must list repository-ID-prefixed paths, for example frontend/src/auth or api/tests/auth; legacy unprefixed paths remain valid
 * working_set is an evidence-based starting scope for reading and modification, never a hard boundary; expand it when facts require and record why in the brief body or Revisions
-* omit fields that have no value; legacy briefs without frontmatter remain valid`;
+* omit fields that have no value; do not add empty placeholders
+* omit frontmatter only when none of these fields has an evidence-backed value; legacy briefs without frontmatter remain valid`;
 
 const CURRENT_DECISION_CHECK_GUIDANCE = `Current Decision Check
 
-Before changing code, inspect .ai/decisions/decisions.md when it contains real entries:
+Before planning or changing code, inspect .ai/decisions/decisions.md when it contains real entries:
 
 * revalidate every decision identifier named in brief metadata
 * extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
 * if a referenced decision is inactive, missing, or contradicted by a newly relevant active decision, surface the conflict and do not choose a winner without user confirmation`;
+
+const TASK_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
+const BUG_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
+
+const TASK_EXECUTION_CONSTRAINT_GUIDANCE = `Implementation Constraints
+
+* Follow the acceptance criteria strictly.
+* Prefer minimal changes and respect existing project conventions.
+* Avoid unrelated refactoring.
+* State assumptions explicitly.
+* Define the validation required before work can be reported complete.`;
+
+const BUG_FIX_CONSTRAINT_GUIDANCE = `Fix Constraints
+
+* Follow the Expected Behavior and Acceptance Criteria strictly.
+* Minimize changes and preserve existing behavior.
+* Avoid unrelated refactoring.
+* State assumptions explicitly.
+* Explain material reasoning.
+* Define the validation required before the fix can be reported complete.`;
+
+const TASK_BRIEF_SUFFICIENCY_GUIDANCE = `Brief Sufficiency
+
+Before planning or changing code, and whenever planning or implementation reveals an ambiguity, determine whether the selected brief remains executable against the current project state.
+
+* Investigate facts available from the repository or environment instead of asking the user.
+* Treat the brief as the confirmed desired contract and current code, tests, configuration, and direct observations as the source of current behavior. A difference between current behavior and the brief's Goal or Acceptance Criteria is normally the work to implement; surface a conflict only when current facts contradict the brief's recorded Context or Constraints.
+* Use optional working_set metadata as an initial investigation scope, not a whitelist. Expand it when evidence requires.
+* For a local, reversible implementation choice that does not materially affect behavior, scope, compatibility, security, data, or acceptance, follow existing conventions and choose the simplest option.
+* Do not infer an unresolved user decision that materially affects those concerns. Ask one focused question at a time, include a recommended answer, and wait.
+* If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
+* If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not continue against an outdated brief.
+* If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.`;
+
+const TASK_IMPLEMENTATION_RECORD_GUIDANCE = `When implementation expands the working set, record the reason in the selected active brief's Context or Revisions. After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.`;
+
+const TASK_IMPLEMENTATION_DECISION_GUIDANCE = `When making implementation decisions
+
+* Reuse existing helpers, patterns, and APIs before introducing new ones.
+* Before introducing a new abstraction, confirm that extending existing code would not satisfy the requirement.
+* Choose the simplest implementation that satisfies the acceptance criteria.
+* Introduce a new dependency or abstraction only when no in-project option exists, and state why.
+* Do not optimize for hypothetical future reuse.`;
+
+const BUG_FIX_SUFFICIENCY_GUIDANCE = `Fix Sufficiency
+
+Before planning or changing code, determine whether the selected brief remains executable against the current project state.
+
+* Investigate facts available from the repository or environment instead of asking the user.
+* Treat the brief's Expected Behavior and Acceptance Criteria as the confirmed desired contract. Current code, tests, configuration, and direct observations describe current behavior.
+* Correct a confirmed root cause rather than a symptom. When the brief has only hypotheses, do not report one as confirmed; validate the behavioral correction and state the remaining uncertainty.
+* For a local, reversible fix choice that does not materially affect expected behavior, scope, compatibility, security, data, or acceptance, follow existing conventions and choose the smallest correction.
+* Do not infer an unresolved user decision that materially affects those concerns. Ask one focused question at a time, include a recommended answer, and wait.
+* If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
+* If a choice materially changes Expected Behavior, accepted scope, or Acceptance Criteria, stop and require renewed bug-explore. Do not continue against an outdated brief.
+* If current project state materially contradicts the brief's evidence or constraints, surface the conflict and resolve it under the same rules.`;
+
+const BUG_FIX_DECISION_GUIDANCE = `When making fix decisions
+
+* Extend existing behavior before introducing new abstractions.
+* Prefer the smallest behavioral correction that resolves the confirmed root cause or, when no cause is confirmed, the accepted behavioral failure.
+* Introduce new dependencies only when existing project capabilities cannot reasonably solve the problem.`;
+
+function planHandoffGuidance(planSkill) {
+  return `Optional Plan Handoff
+
+When the immediately preceding conversation includes a completed ${planSkill} result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.`;
+}
 
 const PROJECT_EXPLORE_DESCRIPTION = 'Build an evidence-based understanding of the existing project without changing it. Use only when the user explicitly invokes project-explore; do not use for implementation, bug investigation, or formal review.';
 const PROJECT_EXPLORE_BODY = `Purpose
@@ -438,6 +507,57 @@ TASK_READY
 `,
   },
 
+  'task-plan': {
+    name: 'task-plan',
+    description: 'Prepare a concrete, reviewable implementation plan for a selected active task brief without changing project files.',
+    content: `---
+name: task-plan
+description: Prepare a concrete, reviewable implementation plan for a selected active task brief without changing project files.
+user-invocable: true
+---
+
+Purpose
+
+Prepare a concrete, reviewable preview of how task-implement would satisfy a selected active task brief. This is optional and does not create a workflow state.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Rules
+
+1. ${TASK_BRIEF_SELECTION_RULE}
+2. Read the selected brief and inspect the relevant current code before planning.
+3. Do not modify project files, the task brief, decisions, or task archives. Do not create a persistent plan artifact.
+4. An explicit user choice applies only to the current conversation.
+5. When no material choice remains unresolved, show the plan and stop.
+
+${TASK_BRIEF_SUFFICIENCY_GUIDANCE}
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
+
+${TASK_EXECUTION_CONSTRAINT_GUIDANCE}
+
+${TASK_IMPLEMENTATION_DECISION_GUIDANCE}
+
+Output
+
+## Recommended Implementation
+
+List only the relevant files or modules, intended changes, important implementation decisions, and why the approach follows current project conventions. Include an explicit user choice only when one exists.
+
+## Validation
+
+State the checks task-implement should run to demonstrate the acceptance criteria.
+
+## Decision Needed
+
+Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
+
+When no material choice remains unresolved output:
+
+TASK_PLAN_READY
+`,
+  },
+
   'task-implement': {
     name: 'task-implement',
     description: 'Implement a selected active task brief and validate it. Archive automatically when complete.',
@@ -455,45 +575,29 @@ ${WORKSPACE_CONTEXT_GUIDANCE}
 
 Rules
 
-1. Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
+1. ${TASK_BRIEF_SELECTION_RULE}
 2. Read the selected brief and inspect the relevant current code before planning.
-3. Follow the acceptance criteria strictly.
-4. Prefer minimal changes.
-5. Respect existing project conventions.
-6. Avoid unnecessary refactoring.
-7. State assumptions explicitly.
-8. Validate the result before stopping.
-9. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
+3. Validate the result before reporting the work complete.
+4. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
 
-Brief Sufficiency
+${planHandoffGuidance('task-plan')}
 
-Before changing code, and whenever implementation reveals an ambiguity, determine whether the selected brief remains executable against the current project state.
+${TASK_BRIEF_SUFFICIENCY_GUIDANCE}
 
-* Investigate facts available from the repository or environment instead of asking the user.
-* Treat the brief as the confirmed desired contract and current code, tests, configuration, and direct observations as the source of current behavior. A difference between current behavior and the brief's Goal or Acceptance Criteria is normally the work to implement; surface a conflict only when current facts contradict the brief's recorded Context or Constraints.
-* Use optional working_set metadata as an initial investigation scope, not a whitelist. Expand it when evidence requires and record the reason in Context or Revisions.
-* For a local, reversible implementation choice that does not materially affect behavior, scope, compatibility, security, data, or acceptance, follow existing conventions and choose the simplest option.
-* Do not infer an unresolved user decision that materially affects those concerns. Ask one focused question at a time, include a recommended answer, and wait.
-* If relevant active decisions conflict, surface the conflict and do not choose a winner without user confirmation.
-* After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
-* If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not implement against an outdated brief.
-* If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.
+${TASK_IMPLEMENTATION_RECORD_GUIDANCE}
 
 ${CURRENT_DECISION_CHECK_GUIDANCE}
 
-When making implementation decisions
+${TASK_EXECUTION_CONSTRAINT_GUIDANCE}
 
-* Reuse existing helpers, patterns, and APIs before introducing new ones.
-* Before introducing a new abstraction, confirm that extending existing code would not satisfy the requirement.
-* Choose the simplest implementation that satisfies the acceptance criteria.
-* Introduce a new dependency or abstraction only when no in-project option exists, and state why.
-* Do not optimize for hypothetical future reuse.
+${TASK_IMPLEMENTATION_DECISION_GUIDANCE}
 
 Output
 
 ## Plan
 
 Short implementation plan.
+State an explicit user choice from a completed task-plan only when one exists.
 
 ## Changes
 
@@ -706,6 +810,57 @@ BUG_READY
 `,
   },
 
+  'bug-plan': {
+    name: 'bug-plan',
+    description: 'Prepare a concrete, reviewable fix plan for a selected active bug brief without changing project files.',
+    content: `---
+name: bug-plan
+description: Prepare a concrete, reviewable fix plan for a selected active bug brief without changing project files.
+user-invocable: true
+---
+
+Purpose
+
+Prepare a concrete, reviewable preview of how bug-fix would correct a selected active bug brief. This is optional and does not create a workflow state.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Rules
+
+1. ${BUG_BRIEF_SELECTION_RULE}
+2. Recheck the brief's evidence and relevant current behavior before planning.
+3. Do not modify project files, the bug brief, decisions, or bug archives. Do not create a persistent plan artifact.
+4. An explicit user choice applies only to the current conversation.
+5. When no material choice remains unresolved, show the plan and stop.
+
+${BUG_FIX_SUFFICIENCY_GUIDANCE}
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
+
+${BUG_FIX_CONSTRAINT_GUIDANCE}
+
+${BUG_FIX_DECISION_GUIDANCE}
+
+Output
+
+## Recommended Fix
+
+State the confirmed evidence or cause status, relevant files or modules, intended correction, and important fix decisions. When the cause remains unconfirmed, state the discriminating checks before selecting a correction. Include an explicit user choice only when one exists.
+
+## Validation
+
+State the reproduction, regression, and acceptance checks bug-fix should run.
+
+## Decision Needed
+
+Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
+
+When no material choice remains unresolved output:
+
+BUG_PLAN_READY
+`,
+  },
+
   'bug-fix': {
     name: 'bug-fix',
     description: 'Fix a selected active bug brief and validate the result. Archive automatically when complete.',
@@ -723,23 +878,20 @@ ${WORKSPACE_CONTEXT_GUIDANCE}
 
 Rules
 
-1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
+1. ${BUG_BRIEF_SELECTION_RULE}
 2. Recheck current behavior and the brief's evidence before changing code.
-3. Minimize changes.
-4. Avoid unrelated refactoring.
-5. Correct a confirmed root cause rather than a symptom. When the brief has only hypotheses, do not report one as confirmed; validate the behavioral correction and state the remaining uncertainty.
-6. Preserve existing behavior.
-7. Explain reasoning.
-8. Validate the fix before stopping.
-9. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
+3. Validate the fix before reporting it complete.
+4. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
+
+${planHandoffGuidance('bug-plan')}
+
+${BUG_FIX_SUFFICIENCY_GUIDANCE}
 
 ${CURRENT_DECISION_CHECK_GUIDANCE}
 
-When making implementation decisions
+${BUG_FIX_CONSTRAINT_GUIDANCE}
 
-* Extend existing behavior before introducing new abstractions.
-* Prefer the smallest behavioral correction that resolves the confirmed root cause or, when no cause is confirmed, the accepted behavioral failure.
-* Introduce new dependencies only when existing project capabilities cannot reasonably solve the problem.
+${BUG_FIX_DECISION_GUIDANCE}
 
 Output
 
@@ -750,6 +902,7 @@ Confirmed cause or unresolved hypotheses and confidence.
 ## Fix
 
 Changes made.
+State an explicit user choice from a completed bug-plan only when one exists.
 
 ## Validation
 
@@ -1683,6 +1836,7 @@ export function init(cwd, { fs, path, log }) {
   fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
+  plan:  task-plan | bug-plan (optional, review-only)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
@@ -1717,6 +1871,7 @@ export function refresh(cwd, { fs, path, log }) {
   fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
+  plan:  task-plan | bug-plan (optional, review-only)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);

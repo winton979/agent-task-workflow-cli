@@ -90,8 +90,8 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 | --- | --- | --- |
 | Understand the existing project | `project-explore` | Read-only, evidence-based explanation; no artifacts or changes. |
 | Small, contained change | `task-fast` | Clarify, confirm a brief, implement, validate, and archive in one flow. |
-| Larger requirement | `task-explore` -> `task-implement` -> optional `task-audit` | A concise, implementation-agnostic task brief followed by validated work. |
-| Bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` | Evidence, a root-cause-focused fix brief, then validation. |
+| Larger requirement | `task-explore` -> optional `task-plan` -> `task-implement` -> optional `task-audit` | A concise, implementation-agnostic task brief followed by optionally reviewed, validated work. |
+| Bug fix | `bug-explore` -> optional `bug-plan` -> `bug-fix` -> optional `bug-audit` | Evidence, a root-cause-focused fix brief followed by an optional reviewable fix plan and validation. |
 | Abandon an active attempt | `task-cancel` or `bug-cancel` | Leave the attempt without treating it as completed work. |
 
 ### Explore Before Implementing
@@ -108,7 +108,11 @@ For a larger task, `task-explore` produces `TASK_READY` only when its brief coul
 
 `task-implement` rechecks repository facts and relevant current decisions. Current code, tests, configuration, and direct observations describe current behavior; a brief records the confirmed desired contract, while an archive is historical context. A difference between current behavior and the brief's Goal is normally the work to implement, not a contradiction. It follows existing conventions for local, reversible choices, asks about unresolved material decisions, and returns material changes to goal, scope, or acceptance criteria to exploration. When several active briefs could match, identify the intended one rather than relying on recency.
 
-New briefs may add optional YAML frontmatter for `areas`, relevant active `decisions`, and an evidence-based `working_set`. In a multi-repository workspace, prefix working-set paths with their repository ID, such as `frontend/src/auth`; older unprefixed metadata remains valid. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
+### Review a Concrete Plan
+
+After a brief is ready, `task-plan` and `bug-plan` are optional, read-only previews of `task-implement` and `bug-fix`. They inspect the same brief and current repository facts, present the relevant changes, decisions, and validation checks, and ask only about material choices. They do not write project files or persistent plan artifacts, and do not create a workflow state. Direct implementation and fixing remain valid without a plan. A user choice from a completed plan can guide the next `task-implement` or `bug-fix` only in the same conversation; implementation always rechecks the brief, current facts, and active decisions.
+
+New briefs use YAML frontmatter whenever evidence establishes an `area`, relevant active `decision`, or an evidence-based `working_set`; fields without a value are omitted rather than written as empty placeholders. In a multi-repository workspace, a cross-repository working set lists repository-ID-prefixed paths, such as `frontend/src/auth`; older unprefixed metadata remains valid. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Frontmatter may be omitted only when none of those values is established; older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
 
 When the requirement indicates it, exploration records concrete compatibility, migration, data, security, performance, concurrency, release, or operational risks. It does not require an empty checklist for every small task.
 
@@ -131,8 +135,8 @@ task --help
 | Area | Skills |
 | --- | --- |
 | Project understanding | `project-explore` |
-| Tasks | `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel` |
-| Bugs | `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel` |
+| Tasks | `task-fast`, `task-explore`, `task-plan`, `task-implement`, `task-audit`, `task-cancel` |
+| Bugs | `bug-explore`, `bug-plan`, `bug-fix`, `bug-audit`, `bug-cancel` |
 | Decision memory | `decision-log`, `decision-sweep-weekly`, `decision-curate` |
 
 ## Keep the Workspace Useful

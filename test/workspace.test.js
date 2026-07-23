@@ -47,6 +47,73 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
   assert.doesNotMatch(output(doctorResult), /workspace\.yaml/);
 });
 
+test('init installs evidence-based brief metadata guidance for task and bug workflows', (t) => {
+  const project = createTemporaryDirectory(t);
+  initializeGitRepository(project);
+
+  const initResult = runTask(project, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    for (const skillName of ['task-fast', 'task-explore', 'bug-explore']) {
+      const skillPath = path.join(project, skillRoot, 'skills', skillName, 'SKILL.md');
+      const skill = readFileSync(skillPath, 'utf-8');
+      assert.match(skill, /When one or more values exist, YAML frontmatter MUST appear/);
+      assert.match(skill, /Do not omit frontmatter merely because some fields have no value/);
+      assert.match(skill, /for work that spans workspace repositories, working_set must list repository-ID-prefixed paths/);
+      assert.match(skill, /omit fields that have no value; do not add empty placeholders/);
+      assert.match(skill, /omit frontmatter only when none of these fields has an evidence-backed value/);
+    }
+  }
+});
+
+test('init installs optional plan skills that share execution rules without requiring a plan', (t) => {
+  const project = createTemporaryDirectory(t);
+  initializeGitRepository(project);
+
+  const initResult = runTask(project, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const taskPlan = readFileSync(path.join(skillsDirectory, 'task-plan', 'SKILL.md'), 'utf-8');
+    const taskImplement = readFileSync(path.join(skillsDirectory, 'task-implement', 'SKILL.md'), 'utf-8');
+    const bugPlan = readFileSync(path.join(skillsDirectory, 'bug-plan', 'SKILL.md'), 'utf-8');
+    const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
+
+    assert.match(taskPlan, /This is optional and does not create a workflow state/);
+    assert.match(taskPlan, /Do not modify project files, the task brief, decisions, or task archives\. Do not create a persistent plan artifact/);
+    assert.match(taskPlan, /An explicit user choice applies only to the current conversation/);
+    assert.match(taskPlan, /Follow the acceptance criteria strictly/);
+    assert.match(taskPlan, /Avoid unrelated refactoring/);
+    assert.match(taskPlan, /Reuse existing helpers, patterns, and APIs before introducing new ones/);
+    assert.match(taskPlan, /TASK_PLAN_READY/);
+    assert.doesNotMatch(taskPlan, /record its date, exact change, and reason under Revisions/);
+    assert.doesNotMatch(taskPlan, /record the reason in the selected active brief/);
+    assert.match(taskImplement, /Direct execution does not require a plan/);
+    assert.match(taskImplement, /State an explicit user choice from a completed task-plan only when one exists/);
+
+    assert.match(bugPlan, /This is optional and does not create a workflow state/);
+    assert.match(bugPlan, /Do not modify project files, the bug brief, decisions, or bug archives\. Do not create a persistent plan artifact/);
+    assert.match(bugPlan, /An explicit user choice applies only to the current conversation/);
+    assert.match(bugPlan, /Follow the Expected Behavior and Acceptance Criteria strictly/);
+    assert.match(bugPlan, /Minimize changes and preserve existing behavior/);
+    assert.match(bugPlan, /Correct a confirmed root cause rather than a symptom/);
+    assert.match(bugPlan, /BUG_PLAN_READY/);
+    assert.match(bugFix, /Direct execution does not require a plan/);
+    assert.match(bugFix, /State an explicit user choice from a completed bug-plan only when one exists/);
+  }
+
+  const refreshResult = runTask(project, 'refresh');
+  assert.equal(refreshResult.status, 0, output(refreshResult));
+  assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-plan', 'SKILL.md')), true);
+  assert.equal(existsSync(path.join(project, '.claude', 'skills', 'bug-plan', 'SKILL.md')), true);
+
+  const helpResult = runTask(project, '--help');
+  assert.equal(helpResult.status, 0, output(helpResult));
+  assert.match(output(helpResult), /plan: task-plan \| bug-plan \(optional, review-only\)/);
+});
+
 test('add-repo promotes an initialized Git project to a portable workspace', (t) => {
   const parent = createTemporaryDirectory(t);
   const backend = path.join(parent, 'backend');
