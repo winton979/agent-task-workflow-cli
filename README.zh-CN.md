@@ -82,6 +82,31 @@ task repos
 
 该清单是上下文映射，不是要求加载每个仓库的指令。智能体会先确定与请求相关的仓库，再使用带仓库 ID 前缀的路径记录跨仓库工作集，例如 `frontend/src/auth`。
 
+### 浏览器启动根与共享 Context
+
+当网页版智能体只能从外层工作区目录启动时，将 task-cli 托管 skills 保留在该启动根，并选择一个已注册的 Git 仓库作为共享工作流 context：
+
+```bash
+task init
+task add-repo otb-agent-context --id otb-agent-context
+task use-context otb-agent-context
+```
+
+`task use-context` 会在启动根的 `workspace.yaml` 中写入 `context_repository`，验证对应注册项解析后仍是 Git 根目录，并在需要时于该处创建标准 `.ai/` 状态。它也会刷新根目录托管的 skills，使其通过 context 解析工作流状态。
+
+```json
+{
+  "version": 1,
+  "context_repository": "otb-agent-context",
+  "repositories": [
+    { "id": "workspace", "path": "." },
+    { "id": "otb-agent-context", "path": "otb-agent-context" }
+  ]
+}
+```
+
+context 仓库自身的 `workspace.yaml` 是业务仓库映射的唯一权威来源。托管 skills 仍位于启动根的 `.claude/skills` 与 `.codex/skills`，而所有 `.ai` 任务、缺陷和决策记录都在 context 仓库中读写。已有启动根 `.ai` 内容不会被自动复制、移动或删除。已配置 context 不可用或无效时会报错；task-cli 不会回退到启动根 `.ai` 状态。
+
 ## 选择工作流
 
 在 Claude Code 中用 `/skill-name` 调用技能；在 Codex CLI 中用 `$skill-name`。
@@ -129,6 +154,7 @@ task repos
 ```bash
 task init       # 创建工作区并安装托管技能
 task add-repo   # 添加 Git 仓库并启用工作区模式
+task use-context # 将工作流状态存入已注册的 Git 仓库
 task bind-repo  # 覆盖当前机器上的仓库路径
 task repos      # 列出当前工作区中配置的仓库
 task refresh    # 重新安装托管工作流技能，不修改 .ai 内容
@@ -147,13 +173,17 @@ task --help
 
 ### 决策记忆
 
-`.ai/decisions/decisions.md` 存放长期有效的项目不变量和可复用约束，而不是本地实现选择的流水账。当前代码和测试描述行为；活动决策解释了未来工作中本可能被错误选择的持久约束。默认不记录决策，除非遗漏它会显著增加后续探索做出错误选择的可能性。
+`.ai/decisions/decisions.md` 存放稳定的项目不变量和可复用约束，而不是本地实现选择、缺陷教训或常规工程提醒的流水账。当前代码和测试描述行为；活动决策解释了未来工作中本可能被错误选择的持久约束。默认不记录决策，除非遗漏它会显著增加后续探索做出错误选择的可能性。
+
+决策增长不应随任务数或缺陷数线性增加。重复事件可能只说明一个底层稳定约束，也可能不产生任何决策；通常应优先沉淀为测试、lint 规则、代码简化或归档上下文，而不是新的活动决策。每周清理没有新增条目也是健康结果。
+
+使用具体未来选择测试：如果一条记录不会改变未来的实现、探索、兼容性或边界选择，就在录入时跳过，或在整理时移除。不要仅因为“以后可能有用”而保留条目。
 
 | 操作 | 用途 |
 | --- | --- |
-| `decision-log` | 记录已批准的长期决策。 |
-| `decision-sweep-weekly` | 审查过去七天的归档简报，起草有价值的决策候选并等待确认。 |
-| `decision-curate` | 对过时或重复条目进行分类，并在修改日志前等待确认。 |
+| `decision-log` | 记录已批准的稳定约束。 |
+| `decision-sweep-weekly` | 审查过去七天的归档简报，聚合重复事件，只起草持久约束，并等待确认。 |
+| `decision-curate` | 主动移除、合并或收紧不再需要保持活动状态的条目，并在修改日志前等待确认。 |
 
 新条目使用稳定的 `DEC-YYYYMMDD-descriptive-slug` 标题和简洁的生命周期元数据：
 
@@ -189,7 +219,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。它只删除 task-cli 托管的技能（包括旧版 `task-review` 和 `bug-review`），然后重新安装上述技能。先运行 `task doctor` 可查看是否需要刷新。
+`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。选择 context 仓库后，它会刷新根目录托管 skills，并在该 context 中确保工作流状态，不会创建新的根目录 `.ai` 状态。它只删除 task-cli 托管的技能（包括旧版 `task-review` 和 `bug-review`），然后重新安装上述技能。先运行 `task doctor` 可查看是否需要刷新。
 
 ## 许可证
 

@@ -82,6 +82,31 @@ For a workflow initialized by an earlier task-cli version, run `task refresh` be
 
 The manifest is a context map, not an instruction to load every repository. Agents first identify the repositories relevant to the request, then record cross-repository working sets with repository-prefixed paths such as `frontend/src/auth`.
 
+### Browser Launch Roots and Shared Context
+
+When a browser-hosted agent can start only from an outer workspace directory, keep task-cli-managed skills at that launch root and select a registered Git repository as the shared workflow context:
+
+```bash
+task init
+task add-repo otb-agent-context --id otb-agent-context
+task use-context otb-agent-context
+```
+
+`task use-context` adds `context_repository` to the launch-root `workspace.yaml`, verifies that the selected registration resolves to a Git root, and creates the standard `.ai/` state there when needed. It also refreshes the root-managed skills so they resolve workflow state through the context.
+
+```json
+{
+  "version": 1,
+  "context_repository": "otb-agent-context",
+  "repositories": [
+    { "id": "workspace", "path": "." },
+    { "id": "otb-agent-context", "path": "otb-agent-context" }
+  ]
+}
+```
+
+The context repository's own `workspace.yaml` is the authoritative map of the business repositories. Managed skills remain under the launch root's `.claude/skills` and `.codex/skills`, while all `.ai` task, bug, and decision records are read and written in the context repository. Existing launch-root `.ai` content is never copied, moved, or deleted automatically. An unavailable or invalid configured context is an error; task-cli does not fall back to launch-root `.ai` state.
+
 ## Choose a Workflow
 
 In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`.
@@ -129,6 +154,7 @@ Use `task-audit` or `bug-audit` before a PR, after a large diff, for public APIs
 ```bash
 task init       # create the workspace and install managed skills
 task add-repo   # add a Git repository and enable workspace mode
+task use-context # store workflow state in a registered Git repository
 task bind-repo  # override a repository path for the current machine
 task repos      # list configured workspace repositories
 task refresh    # reinstall managed skills without changing .ai content
@@ -147,13 +173,17 @@ task --help
 
 ### Decision Memory
 
-`.ai/decisions/decisions.md` stores durable project invariants and reusable constraints, not a transcript of local implementation choices. Current code and tests describe behavior; active decisions explain durable constraints that future work could otherwise choose incorrectly. The default is to skip logging unless omitting a decision would make a later exploration materially more likely to choose incorrectly.
+`.ai/decisions/decisions.md` stores stable project invariants and reusable constraints, not a transcript of local implementation choices, bug lessons, or routine engineering reminders. Current code and tests describe behavior; active decisions explain durable constraints that future work could otherwise choose incorrectly. The default is to skip logging unless omitting a decision would make a later exploration materially more likely to choose incorrectly.
+
+Decision growth should be non-linear with task and bug volume. Repeated incidents may reveal one underlying constraint, or none; they should usually become tests, lint rules, code simplification, or archive context rather than new active decisions. A weekly sweep with zero new entries is a healthy outcome.
+
+Use a concrete future-choice test: if an entry would not change a future implementation, exploration, compatibility, or boundary choice, skip it or remove it during curation. Do not keep entries only because they may be useful someday.
 
 | Action | Use it for |
 | --- | --- |
-| `decision-log` | Record an approved durable decision. |
-| `decision-sweep-weekly` | Review the previous seven days of archived briefs, draft worthwhile decisions, and wait for confirmation. |
-| `decision-curate` | Classify stale or duplicate entries and wait for confirmation before changing the log. |
+| `decision-log` | Record an approved stable constraint. |
+| `decision-sweep-weekly` | Review the previous seven days of archived briefs, group repeated incidents, draft only durable constraints, and wait for confirmation. |
+| `decision-curate` | Assertively remove, merge, or tighten entries that no longer need to be active, then wait for confirmation before changing the log. |
 
 New entries use a stable `DEC-YYYYMMDD-descriptive-slug` heading and concise lifecycle metadata:
 
@@ -189,7 +219,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills. When a context repository is selected, it refreshes root-managed skills and ensures workflow state in that context instead of creating new root `.ai` state. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
 
 ## License
 

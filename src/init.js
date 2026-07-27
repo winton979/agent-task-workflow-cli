@@ -20,12 +20,18 @@ const GITIGNORE_BLOCK = [
 
 const WORKSPACE_CONTEXT_GUIDANCE = `Workspace Context
 
-When workspace.yaml exists at the workflow root, read its repository IDs, paths, and descriptions before investigating or changing code. Also read workspace.local.yaml when present; its repository paths override the shared paths on the current machine.
+Before reading or writing any .ai path, determine the workflow state root. Managed skills are discovered from the launch root, but a launch-root workspace.yaml may declare context_repository. When it does:
+
+1. Resolve that repository ID from the launch-root workspace.yaml, honoring launch-root workspace.local.yaml when present.
+2. Verify that its resolved directory exists and is a Git repository root. If it is missing or invalid, stop and report the configuration error; never fall back to a launch-root .ai directory.
+3. Treat the selected repository as the workflow state root. Read its workspace.yaml and workspace.local.yaml for the business repository map, and resolve every .ai path in this skill from that directory.
+
+Without context_repository, the launch root remains the workflow state root and its workspace manifest is the repository map.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
 * For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
-* Run commands from the relevant repository directory. Do not assume a workflow-root Git diff represents changes in registered repositories.
+* Run commands from the relevant repository directory. Do not assume a workflow-state-root Git diff represents changes in registered repositories.
 * A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.`;
 
 const GRILLING_GUIDANCE = `Grilling
@@ -791,6 +797,8 @@ Purpose
 
 Abandon the current task attempt completely.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Rules
 
 1. Target only the current task attempt.
@@ -1046,6 +1054,8 @@ Purpose
 
 Abandon the current bug-fix attempt completely.
 
+${WORKSPACE_CONTEXT_GUIDANCE}
+
 Rules
 
 1. Target only the current bug-fix attempt.
@@ -1074,11 +1084,13 @@ user-invocable: true
 
 Purpose
 
-Record important implementation decisions.
+Record approved stable project constraints. Do not record bug lessons, personal learning, or per-task implementation history.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
 
 Workflow
 
-1. Decide whether the candidate meets the Selection Standard.
+1. Decide whether the candidate meets the Selection Standard. Reject it if it is only a bug lesson, common engineering practice, or one-task implementation detail.
 2. Draft a concise entry using the Entry Format and inspect related existing decisions.
 3. Show the draft and any overlap, conflict, or supersession to the user.
 4. Do NOT create or modify an entry yet. Wait for explicit user confirmation.
@@ -1086,7 +1098,11 @@ Workflow
 
 Selection Standard
 
-Bias toward not writing. A decision belongs here only when leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path.
+Bias toward not writing. A decision belongs here only when it is a stable constraint and leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path. Potential usefulness, historical interest, or "might help someday" is insufficient.
+
+Future-choice test: before drafting, name the specific future implementation, exploration, compatibility, or boundary choice this entry would change. If no concrete future choice can be named, skip the entry.
+
+Bug count, task count, or review pain is not a selection criterion. A bug may be evidence for a decision, but the bug lesson itself is not the decision. Repeated bugs should usually produce tests, lint rules, code simplification, or one consolidated constraint; they must not produce entries proportional to incident count.
 
 Record only durable constraints such as:
 
@@ -1097,10 +1113,13 @@ Record only durable constraints such as:
 
 Do not record:
 
+* bug lessons, postmortem notes, or reminders to be more careful
 * one-off implementation details
 * local cleanup notes or TODOs
+* common engineering practices already implied by the codebase, tests, or toolchain
 * temporary workarounds that are not yet accepted long-term behavior
 * facts already made obvious by code, tests, or tooling
+* entries kept only because they may be useful someday
 * constraints that disappeared after later simplification or optimization
 
 If unsure, skip the entry.
@@ -1146,6 +1165,8 @@ Requirements
 * After confirmation, default to appending a new active entry
 * Prefer fewer, harder decisions over broad coverage
 * One decision should capture one durable constraint, not a mixed summary
+* Do not create separate entries for repeated symptoms when one underlying constraint covers them
+* A zero-entry outcome is acceptable when no candidate passes the Selection Standard
 * If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
 * Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
 * After explicit confirmation to supersede, append the new active entry and update the prior entry's Status to superseded and Superseded by reference
@@ -1167,7 +1188,9 @@ user-invocable: true
 
 Purpose
 
-Batch-review the past week of work and sediment only the decisions that outlive a single task. Replaces per-task reminders with one weekly pass.
+Batch-review the past week of work and sediment only stable constraints that outlive a single task. Replaces per-task reminders and bug lessons with one weekly pass that should usually skip most briefs. A sweep that proposes no new decisions is a valid successful outcome.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
 
 When to Run
 
@@ -1177,33 +1200,37 @@ Workflow
 
 1. Scan briefs created in the last 7 days under .ai/tasks/archive/ and .ai/bugs/archive/. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
-3. Evaluate each brief against the Sediment Conditions below.
-4. For each candidate, draft a decision entry using the lifecycle metadata format.
-5. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to matter again.
-6. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
-7. For every skip, give a short reason such as one-off detail, already encoded in code, no future constraint, or still unsettled.
-8. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
-9. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
-10. Only after confirmation, apply the approved action for each draft. Default to appending new active DEC entries oldest first; revise, merge, supersede, deprecate, or remove only when the user explicitly selects that action.
-11. Report what was appended, revised, merged, superseded, and skipped.
+3. Group related briefs by the underlying constraint or trade-off before drafting. Repeated symptoms are evidence, not separate decisions.
+4. Evaluate each brief or group against the Sediment Conditions below.
+5. For each candidate, draft a decision entry using the lifecycle metadata format.
+6. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to change a concrete future choice.
+7. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
+8. For every skip, give a short reason such as bug lesson, common practice, one-off detail, already encoded in code, no future constraint, or still unsettled.
+9. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
+10. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
+11. Only after confirmation, apply the approved action for each draft. Default to appending new active DEC entries oldest first; revise, merge, supersede, deprecate, or remove only when the user explicitly selects that action.
+12. Report what was appended, revised, merged, superseded, and skipped.
 
 Sediment Conditions
 
-A brief becomes a decision entry if it satisfies any of:
+A brief or related group becomes a decision entry only if it contains a stable constraint, passes the future-choice test, and satisfies any of:
 
 * Cross-task impact: the choice constrains how future tasks must be written.
 * A concrete alternative was rejected and someone could plausibly pick it later.
 * Counter-intuitive choice: code reads like an anti-pattern but is intentional.
 * Externally driven: compliance, performance, compatibility, or a third-party API limit forced the call.
-* A cancelled attempt whose failure is itself a useful conclusion.
+* A cancelled attempt whose failure proves a reusable constraint, not merely that one approach was poorly executed.
 * Without the note, a future explore step would likely need to rediscover the same constraint.
 
 Skip Conditions
 
 * Affects only the implementation detail of one task.
+* Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint.
 * A temporary or unsettled conclusion.
 * A bare fact with no decision behind it.
+* Common engineering knowledge or standard practice.
 * Already obvious from code, tests, tooling, or existing project structure.
+* Kept only because it might be useful someday.
 * A constraint that was later simplified away, optimized away, or otherwise stopped mattering.
 * Too vague to guide a future task.
 
@@ -1238,6 +1265,8 @@ Requirements
 * Maximum 14 nonblank lines per decision
 * Default to appending new active entries
 * Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* Decision growth must be non-linear with task and bug volume; many related briefs should collapse to one durable constraint or be skipped
+* Prefer zero drafts over weak drafts
 * When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
 * If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically
 * Legacy date-based entries remain valid. Do not bulk-migrate them without a user request
@@ -1256,7 +1285,7 @@ user-invocable: true
 
 Purpose
 
-Keep .ai/decisions/decisions.md narrow enough that future exploration can find active constraints quickly and trace historical changes only when needed.
+Keep .ai/decisions/decisions.md narrow enough that future exploration can find stable constraints quickly and trace historical changes only when needed. Prune assertively; the file is a curated constraint set, not a complete memory.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
@@ -1265,24 +1294,28 @@ Workflow
 1. Read .ai/decisions/decisions.md.
 2. Inspect the current codebase only as needed to judge whether each decision still represents a live constraint.
 3. Classify each entry as keep active, tighten, supersede, deprecate, merge, or remove.
-4. Bias toward removal when an entry is stale, duplicate, too local, too vague, or no longer changes future implementation choices. Preserve a concise superseded entry when it explains an active decision's lineage.
-5. Present a review list with every entry, its classification, and a short reason.
-6. Flag every pair of active entries whose Scope and Applies when conditions overlap but whose decisions conflict. Propose a resolution, a narrower applicability condition, or supersession.
-7. When proposing tighten, supersede, deprecate, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
-8. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
-9. After confirmation, apply only the approved edits and preserve unrelated entries.
-10. Summarize what was kept active, tightened, superseded, deprecated, merged, removed, and why.
+4. Bias toward removal or merge when an entry is stale, duplicate, too local, too vague, common knowledge, a bug lesson, kept for possible future value, or no longer changes future implementation choices. Preserve a concise superseded entry only when it explains an active decision's lineage.
+5. When evidence does not show that an entry changes a concrete future choice, classify it as remove, merge, deprecate, or tighten; do not keep it by default.
+6. Present a review list with every entry, its classification, and a short reason.
+7. Flag every pair of active entries whose Scope and Applies when conditions overlap but whose decisions conflict. Propose a resolution, a narrower applicability condition, or supersession.
+8. When proposing tighten, supersede, deprecate, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
+9. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
+10. After confirmation, apply only the approved edits and preserve unrelated entries.
+11. Summarize what was kept active, tightened, superseded, deprecated, merged, removed, and why.
 
 Retention Standard
 
-Keep an active entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong. Keep a superseded entry only when its link to an active successor explains material history.
+Keep an active entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong. It must change a future choice, not merely remind developers to avoid a past mistake. Possible future usefulness is not enough. Keep a superseded entry only when its link to an active successor explains material history.
 
 Removal Candidates
 
 * one-off implementation details
+* bug lessons, postmortem notes, or reminders to be careful
+* common engineering practices
 * decisions already enforced clearly by code, tests, or tooling
 * duplicate or near-duplicate entries
 * vague notes that do not change future choices
+* entries preserved for possible future usefulness rather than a concrete future choice
 * constraints invalidated by later refactors, simplifications, or performance work
 * historical context that belongs in task or bug archives instead
 * active entries with no Scope, no applicable condition where one is needed, or a conflict with another active entry
@@ -1291,7 +1324,8 @@ Requirements
 
 * Default to proposing, not editing
 * Never remove or rewrite an entry without explicit user confirmation
-* Prefer deleting low-value entries over rewriting them into longer prose
+* Prefer deleting or merging low-value entries over rewriting them into longer prose
+* Do not keep an entry merely because removal feels risky; state the risk and propose the smallest removal, merge, or narrowing that preserves any real constraint
 * Do not automatically add metadata to legacy entries; propose targeted migration only when it materially improves retrieval
 * Keep the remaining file concise and high-signal
 `,
@@ -1431,6 +1465,23 @@ function updateGitignore(fs, path, cwd, log) {
   log.chalk.green('  ✓ .gitignore updated');
 }
 
+function ensureWorkflowState(fs, path, cwd, log) {
+  const dirs = [
+    '.ai',
+    TASK_ACTIVE_DIR,
+    TASK_ARCHIVE_DIR,
+    BUG_ACTIVE_DIR,
+    BUG_ARCHIVE_DIR,
+    '.ai/decisions',
+  ];
+
+  for (const dir of dirs) {
+    ensureDir(fs, path, cwd, dir, log);
+  }
+
+  ensureFile(fs, path, path.join(cwd, DECISIONS_FILE), '# Decisions Log\n\n', log);
+}
+
 function hasGitignoreRules(gitignore) {
   return GITIGNORE_BLOCK.split('\n').every((rule) => gitignore.includes(rule));
 }
@@ -1456,7 +1507,11 @@ function localWorkspaceIsIgnored(path, cwd) {
 }
 
 function workflowIsInitialized(fs, path, cwd) {
-  return fs.existsSync(path.join(cwd, DECISIONS_FILE));
+  try {
+    return fs.existsSync(path.join(workflowStateRoot(fs, path, cwd), DECISIONS_FILE));
+  } catch {
+    return fs.existsSync(path.join(cwd, DECISIONS_FILE));
+  }
 }
 
 function workspacePath(path, cwd) {
@@ -1513,6 +1568,16 @@ function validateWorkspace(workspace, path) {
     if (repository.description !== undefined
       && (typeof repository.description !== 'string' || !repository.description.trim())) {
       throw new Error(`${WORKSPACE_FILE} repository descriptions must be non-empty strings when provided.`);
+    }
+  }
+
+  if (workspace.context_repository !== undefined) {
+    const contextRepositoryId = normalizeRepositoryId(workspace.context_repository);
+    if (!/^[a-z][a-z0-9-]*$/.test(contextRepositoryId)) {
+      throw new Error(`${WORKSPACE_FILE} context_repository must use a registered repository ID.`);
+    }
+    if (!repositoryIds.has(contextRepositoryId)) {
+      throw new Error(`${WORKSPACE_FILE} context_repository must reference a registered repository ID.`);
     }
   }
 
@@ -1591,6 +1656,35 @@ function resolvedWorkspaceRepositories(workspace, localWorkspace) {
     ...repository,
     path: localWorkspace?.repositories[repository.id] ?? repository.path,
   }));
+}
+
+function configuredContextRepository(fs, path, cwd) {
+  const workspace = readWorkspace(fs, path, cwd);
+  if (!workspace?.context_repository) {
+    return null;
+  }
+
+  const localWorkspace = readLocalWorkspace(fs, path, cwd, workspace);
+  const repository = resolvedWorkspaceRepositories(workspace, localWorkspace)
+    .find((candidate) => candidate.id === workspace.context_repository);
+  const configuredPath = path.resolve(cwd, repository.path);
+
+  let contextRoot;
+  try {
+    contextRoot = resolveGitRepository(fs, path, configuredPath);
+  } catch (error) {
+    throw new Error(`Configured context repository "${repository.id}" is invalid: ${error.message}`);
+  }
+
+  if (canonicalPath(fs, path, configuredPath) !== contextRoot) {
+    throw new Error(`Configured context repository "${repository.id}" must point to a Git repository root.`);
+  }
+
+  return { id: repository.id, root: contextRoot };
+}
+
+function workflowStateRoot(fs, path, cwd) {
+  return configuredContextRepository(fs, path, cwd)?.root || cwd;
 }
 
 function canonicalPath(fs, path, targetPath) {
@@ -1711,6 +1805,49 @@ export function addRepo(cwd, repositoryPath, options, { fs, path, log }) {
   if (isWorkspacePromotion) {
     log.info('\nRefreshing managed workflow skills for workspace context...');
     reinstallManagedSkills(fs, path, workflowRoot, log);
+  }
+}
+
+export function useContext(cwd, id, { fs, path, log }) {
+  if (!workflowIsInitialized(fs, path, cwd)) {
+    throw new Error('Task workflow is not initialized here. Run `task init` first.');
+  }
+
+  const workflowRoot = canonicalPath(fs, path, cwd);
+  const workspace = readWorkspace(fs, path, workflowRoot);
+  if (!workspace) {
+    throw new Error(`No ${WORKSPACE_FILE} found. Run \`task add-repo\` before selecting a context repository.`);
+  }
+
+  const repositoryId = normalizeRepositoryId(id);
+  const localWorkspace = readLocalWorkspace(fs, path, workflowRoot, workspace);
+  const repository = resolvedWorkspaceRepositories(workspace, localWorkspace)
+    .find((candidate) => candidate.id === repositoryId);
+  if (!repository) {
+    throw new Error(`Unknown workspace repository ID: ${id}`);
+  }
+
+  const configuredPath = path.resolve(workflowRoot, repository.path);
+  const contextRoot = resolveGitRepository(fs, path, configuredPath);
+  if (canonicalPath(fs, path, configuredPath) !== contextRoot) {
+    throw new Error('Context repository path must point to a Git repository root.');
+  }
+
+  workspace.context_repository = repositoryId;
+  writeWorkspace(fs, path, workflowRoot, workspace);
+  log.chalk.green(`  ✓ ${WORKSPACE_FILE}`);
+  log.info(`Selected context repository ${repositoryId}: ${repository.path}`);
+
+  log.info('\nEnsuring context workflow state...');
+  ensureWorkflowState(fs, path, contextRoot, log);
+
+  log.info('\nRefreshing managed workflow skills for context routing...');
+  reinstallManagedSkills(fs, path, workflowRoot, log);
+
+  log.info('\nUpdating ignore rules...');
+  updateGitignore(fs, path, workflowRoot, log);
+  if (contextRoot !== workflowRoot) {
+    updateGitignore(fs, path, contextRoot, log);
   }
 }
 
@@ -1839,22 +1976,10 @@ function doctorWorkspace(fs, path, cwd, log) {
 }
 
 export function init(cwd, { fs, path, log }) {
-  const dirs = [
-    '.ai',
-    TASK_ACTIVE_DIR,
-    TASK_ARCHIVE_DIR,
-    BUG_ACTIVE_DIR,
-    BUG_ARCHIVE_DIR,
-    '.ai/decisions',
-  ];
+  const stateRoot = workflowStateRoot(fs, path, cwd);
 
   log.info('Creating directory structure...');
-  for (const dir of dirs) {
-    ensureDir(fs, path, cwd, dir, log);
-  }
-
-  const decisionsPath = path.join(cwd, DECISIONS_FILE);
-  ensureFile(fs, path, decisionsPath, '# Decisions Log\n\n', log);
+  ensureWorkflowState(fs, path, stateRoot, log);
 
   log.info('\nInstalling workflow skills...');
   installSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
@@ -1862,6 +1987,9 @@ export function init(cwd, { fs, path, log }) {
 
   log.info('\nUpdating ignore rules...');
   updateGitignore(fs, path, cwd, log);
+  if (stateRoot !== cwd) {
+    updateGitignore(fs, path, stateRoot, log);
+  }
 
   log.info(`\nTask workflow initialized. Recommended flows:
   explore: project-explore
@@ -1874,28 +2002,19 @@ export function init(cwd, { fs, path, log }) {
 }
 
 export function refresh(cwd, { fs, path, log }) {
-  const dirs = [
-    '.ai',
-    TASK_ACTIVE_DIR,
-    TASK_ARCHIVE_DIR,
-    BUG_ACTIVE_DIR,
-    BUG_ARCHIVE_DIR,
-    '.ai/decisions',
-  ];
+  const stateRoot = workflowStateRoot(fs, path, cwd);
 
   log.info('Ensuring directory structure...');
-  for (const dir of dirs) {
-    ensureDir(fs, path, cwd, dir, log);
-  }
-
-  const decisionsPath = path.join(cwd, DECISIONS_FILE);
-  ensureFile(fs, path, decisionsPath, '# Decisions Log\n\n', log);
+  ensureWorkflowState(fs, path, stateRoot, log);
 
   log.info('\nRefreshing managed workflow skills...');
   reinstallManagedSkills(fs, path, cwd, log);
 
   log.info('\nUpdating ignore rules...');
   updateGitignore(fs, path, cwd, log);
+  if (stateRoot !== cwd) {
+    updateGitignore(fs, path, stateRoot, log);
+  }
 
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   explore: project-explore
@@ -1909,30 +2028,47 @@ export function refresh(cwd, { fs, path, log }) {
 
 export function doctor(cwd, { fs, path, log }) {
   const checks = [];
-  const requiredDirs = [
+  let context = null;
+  let stateRoot = cwd;
+  let contextIsValid = true;
+  try {
+    context = configuredContextRepository(fs, path, cwd);
+    if (context) {
+      stateRoot = context.root;
+      logCheck(log, true, 'context_repository', `${context.id}`);
+    }
+  } catch (error) {
+    contextIsValid = false;
+    stateRoot = null;
+    checks.push(false);
+    logCheck(log, false, 'context_repository', error.message);
+  }
+
+  const requiredStateDirs = [
     '.ai',
     TASK_ACTIVE_DIR,
     TASK_ARCHIVE_DIR,
     BUG_ACTIVE_DIR,
     BUG_ARCHIVE_DIR,
     '.ai/decisions',
-    CLAUDE_SKILLS_DIR,
-    CODEX_SKILLS_DIR,
   ];
 
   log.info('Checking task workflow setup...');
 
-  for (const dir of requiredDirs) {
-    const full = path.join(cwd, dir);
-    const exists = fs.existsSync(full);
-    checks.push(exists);
-    logCheck(log, exists, dir, exists ? 'present' : 'missing');
-  }
+  if (contextIsValid) {
+    for (const dir of requiredStateDirs) {
+      const full = path.join(stateRoot, dir);
+      const exists = fs.existsSync(full);
+      checks.push(exists);
+      const label = context ? `context/${dir}` : dir;
+      logCheck(log, exists, label, exists ? 'present' : 'missing');
+    }
 
-  const decisionsPath = path.join(cwd, DECISIONS_FILE);
-  const decisionsExists = fs.existsSync(decisionsPath);
-  checks.push(decisionsExists);
-  logCheck(log, decisionsExists, DECISIONS_FILE, decisionsExists ? 'present' : 'missing');
+    const decisionsPath = path.join(stateRoot, DECISIONS_FILE);
+    const decisionsExists = fs.existsSync(decisionsPath);
+    checks.push(decisionsExists);
+    logCheck(log, decisionsExists, context ? `context/${DECISIONS_FILE}` : DECISIONS_FILE, decisionsExists ? 'present' : 'missing');
+  }
 
   for (const skillRoot of [CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR]) {
     for (const skill of Object.values(SKILLS)) {
@@ -1989,6 +2125,26 @@ export function doctor(cwd, { fs, path, log }) {
   );
 
   checks.push(...doctorWorkspace(fs, path, cwd, log));
+  if (contextIsValid && context && stateRoot !== cwd) {
+    const contextGitignorePath = path.join(stateRoot, '.gitignore');
+    const contextGitignore = fs.existsSync(contextGitignorePath)
+      ? fs.readFileSync(contextGitignorePath, 'utf-8')
+      : '';
+    const contextHasGitignoreBlock = hasGitignoreRules(contextGitignore);
+    const contextLocalWorkspaceIgnored = localWorkspaceIsIgnored(path, stateRoot);
+    const contextLocalWorkspaceTracked = localWorkspaceIsTracked(path, stateRoot);
+    const contextHasSafeLocalWorkspaceConfig = contextLocalWorkspaceIgnored && !contextLocalWorkspaceTracked;
+    checks.push(contextHasGitignoreBlock && contextHasSafeLocalWorkspaceConfig);
+    logCheck(
+      log,
+      contextHasGitignoreBlock && contextHasSafeLocalWorkspaceConfig,
+      'context/.gitignore',
+      contextHasGitignoreBlock && contextHasSafeLocalWorkspaceConfig
+        ? 'task workflow rules present'
+        : 'missing or ineffective task workflow rules'
+    );
+    checks.push(...doctorWorkspace(fs, path, stateRoot, log));
+  }
 
   const okCount = checks.filter(Boolean).length;
   const totalCount = checks.length;

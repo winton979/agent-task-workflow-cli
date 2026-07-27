@@ -6,11 +6,11 @@ user-invocable: true
 
 Purpose
 
-Record important implementation decisions.
+Record approved stable project constraints. Do not record bug lessons, personal learning, or per-task implementation history.
 
 Workflow
 
-1. Decide whether the candidate meets the Selection Standard.
+1. Decide whether the candidate meets the Selection Standard. Reject it if it is only a bug lesson, common engineering practice, or one-task implementation detail.
 2. Draft a concise entry using the Entry Format and inspect related existing decisions.
 3. Show the draft and any overlap, conflict, or supersession to the user.
 4. Do NOT create or modify an entry yet. Wait for explicit user confirmation.
@@ -18,7 +18,11 @@ Workflow
 
 Selection Standard
 
-Bias toward not writing. A decision belongs here only when leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path.
+Bias toward not writing. A decision belongs here only when it is a stable constraint and leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path. Potential usefulness, historical interest, or "might help someday" is insufficient.
+
+Future-choice test: before drafting, name the specific future implementation, exploration, compatibility, or boundary choice this entry would change. If no concrete future choice can be named, skip the entry.
+
+Bug count, task count, or review pain is not a selection criterion. A bug may be evidence for a decision, but the bug lesson itself is not the decision. Repeated bugs should usually produce tests, lint rules, code simplification, or one consolidated constraint; they must not produce entries proportional to incident count.
 
 Record only durable constraints such as:
 
@@ -29,10 +33,13 @@ Record only durable constraints such as:
 
 Do not record:
 
+* bug lessons, postmortem notes, or reminders to be more careful
 * one-off implementation details
 * local cleanup notes or TODOs
+* common engineering practices already implied by the codebase, tests, or toolchain
 * temporary workarounds that are not yet accepted long-term behavior
 * facts already made obvious by code, tests, or tooling
+* entries kept only because they may be useful someday
 * constraints that disappeared after later simplification or optimization
 
 If unsure, skip the entry.
@@ -78,6 +85,8 @@ Requirements
 * After confirmation, default to appending a new active entry
 * Prefer fewer, harder decisions over broad coverage
 * One decision should capture one durable constraint, not a mixed summary
+* Do not create separate entries for repeated symptoms when one underlying constraint covers them
+* A zero-entry outcome is acceptable when no candidate passes the Selection Standard
 * If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
 * Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
 * After explicit confirmation to supersede, append the new active entry and update the prior entry's Status to superseded and Superseded by reference

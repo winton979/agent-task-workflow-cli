@@ -67,6 +67,41 @@ test('init installs evidence-based brief metadata guidance for task and bug work
   }
 });
 
+test('init installs strict decision memory noise controls', (t) => {
+  const project = createTemporaryDirectory(t);
+  initializeGitRepository(project);
+
+  const initResult = runTask(project, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const decisionLog = readFileSync(path.join(skillsDirectory, 'decision-log', 'SKILL.md'), 'utf-8');
+    const decisionSweep = readFileSync(path.join(skillsDirectory, 'decision-sweep-weekly', 'SKILL.md'), 'utf-8');
+    const decisionCurate = readFileSync(path.join(skillsDirectory, 'decision-curate', 'SKILL.md'), 'utf-8');
+
+    assert.match(decisionLog, /Record approved stable project constraints/);
+    assert.match(decisionLog, /Bug count, task count, or review pain is not a selection criterion/);
+    assert.match(decisionLog, /Future-choice test/);
+    assert.match(decisionLog, /common engineering practices already implied by the codebase, tests, or toolchain/);
+    assert.match(decisionLog, /Do not create separate entries for repeated symptoms/);
+    assert.match(decisionLog, /A zero-entry outcome is acceptable/);
+
+    assert.match(decisionSweep, /A sweep that proposes no new decisions is a valid successful outcome/);
+    assert.match(decisionSweep, /Repeated symptoms are evidence, not separate decisions/);
+    assert.match(decisionSweep, /Decision growth must be non-linear with task and bug volume/);
+    assert.match(decisionSweep, /Prefer zero drafts over weak drafts/);
+    assert.match(decisionSweep, /Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint/);
+
+    assert.match(decisionCurate, /Prune assertively/);
+    assert.match(decisionCurate, /It must change a future choice, not merely remind developers to avoid a past mistake/);
+    assert.match(decisionCurate, /Possible future usefulness is not enough/);
+    assert.match(decisionCurate, /Bias toward removal or merge/);
+    assert.match(decisionCurate, /Prefer deleting or merging low-value entries/);
+    assert.match(decisionCurate, /Do not keep an entry merely because removal feels risky/);
+  }
+});
+
 test('init installs task-fast plus implementation and fix proposal gates without plan skills', (t) => {
   const project = createTemporaryDirectory(t);
   initializeGitRepository(project);
@@ -162,6 +197,89 @@ test('add-repo promotes an initialized Git project to a portable workspace', (t)
   assert.equal(reposResult.status, 0, output(reposResult));
   assert.match(output(reposResult), /backend\s+\./);
   assert.match(output(reposResult), /frontend\s+\.\.\/frontend - Web application/);
+});
+
+test('use-context keeps skills at the launch root and routes workflow state to a Git context repository', (t) => {
+  const parent = createTemporaryDirectory(t);
+  const launchRoot = path.join(parent, 'workspace');
+  const context = path.join(launchRoot, 'agent-context');
+  const backend = path.join(launchRoot, 'backend');
+  initializeGitRepository(launchRoot);
+  initializeGitRepository(context);
+  initializeGitRepository(backend);
+
+  assert.equal(runTask(launchRoot, 'init').status, 0);
+  writeFileSync(path.join(launchRoot, '.ai', 'tasks', 'active', 'legacy.md'), '# Legacy root state\n');
+  assert.equal(runTask(launchRoot, 'add-repo', 'agent-context', '--id', 'agent-context').status, 0);
+  writeFileSync(path.join(context, 'workspace.yaml'), `${JSON.stringify({
+    version: 1,
+    repositories: [
+      { id: 'agent-context', path: '.' },
+      { id: 'backend', path: '../backend' },
+    ],
+  }, null, 2)}\n`);
+
+  const useContextResult = runTask(launchRoot, 'use-context', 'agent-context');
+  assert.equal(useContextResult.status, 0, output(useContextResult));
+
+  const launchWorkspace = JSON.parse(readFileSync(path.join(launchRoot, 'workspace.yaml'), 'utf-8'));
+  assert.equal(launchWorkspace.context_repository, 'agent-context');
+  assert.equal(existsSync(path.join(context, '.ai', 'decisions', 'decisions.md')), true);
+  assert.equal(readFileSync(path.join(launchRoot, '.ai', 'tasks', 'active', 'legacy.md'), 'utf-8'), '# Legacy root state\n');
+  assert.equal(existsSync(path.join(launchRoot, '.codex', 'skills', 'task-explore', 'SKILL.md')), true);
+  assert.equal(existsSync(path.join(context, '.codex', 'skills')), false);
+  for (const skillName of [
+    'task-fast', 'task-explore', 'task-implement', 'task-audit', 'task-cancel',
+    'bug-explore', 'bug-fix', 'bug-audit', 'bug-cancel',
+    'decision-log', 'decision-sweep-weekly', 'decision-curate',
+  ]) {
+    const skill = readFileSync(path.join(launchRoot, '.codex', 'skills', skillName, 'SKILL.md'), 'utf-8');
+    assert.match(skill, /context_repository/);
+  }
+
+  rmSync(path.join(context, '.ai'), { recursive: true, force: true });
+  const initResult = runTask(launchRoot, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+  assert.equal(existsSync(path.join(context, '.ai', 'decisions', 'decisions.md')), true);
+
+  const refreshResult = runTask(launchRoot, 'refresh');
+  assert.equal(refreshResult.status, 0, output(refreshResult));
+  assert.equal(existsSync(path.join(launchRoot, '.codex', 'skills', 'task-fast', 'SKILL.md')), true);
+
+  rmSync(path.join(launchRoot, '.ai'), { recursive: true, force: true });
+  const reselectContextResult = runTask(launchRoot, 'use-context', 'agent-context');
+  assert.equal(reselectContextResult.status, 0, output(reselectContextResult));
+  const doctorResult = runTask(launchRoot, 'doctor');
+  assert.equal(doctorResult.status, 0, output(doctorResult));
+  assert.match(output(doctorResult), /context\/\.ai - present/);
+  assert.match(output(doctorResult), /workspace repository backend - \.\.\/backend/);
+});
+
+test('context configuration never falls back to root workflow state when the selected repository is unavailable', (t) => {
+  const parent = createTemporaryDirectory(t);
+  const launchRoot = path.join(parent, 'workspace');
+  const context = path.join(launchRoot, 'agent-context');
+  initializeGitRepository(launchRoot);
+  initializeGitRepository(context);
+
+  assert.equal(runTask(launchRoot, 'init').status, 0);
+  assert.equal(runTask(launchRoot, 'add-repo', 'agent-context', '--id', 'agent-context').status, 0);
+  const manifestPath = path.join(launchRoot, 'workspace.yaml');
+  const workspace = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  workspace.context_repository = 'agent-context';
+  writeFileSync(manifestPath, `${JSON.stringify(workspace, null, 2)}\n`);
+  rmSync(path.join(launchRoot, '.ai'), { recursive: true, force: true });
+  rmSync(context, { recursive: true, force: true });
+
+  const refreshResult = runTask(launchRoot, 'refresh');
+  assert.notEqual(refreshResult.status, 0);
+  assert.match(output(refreshResult), /Configured context repository "agent-context" is invalid/);
+  assert.equal(existsSync(path.join(launchRoot, '.ai')), false);
+
+  const doctorResult = runTask(launchRoot, 'doctor');
+  assert.equal(doctorResult.status, 0, output(doctorResult));
+  assert.match(output(doctorResult), /context_repository - Configured context repository "agent-context" is invalid/);
+  assert.doesNotMatch(output(doctorResult), /\.ai - present/);
 });
 
 test('add-repo rejects invalid and duplicate repositories without rewriting the manifest', (t) => {
