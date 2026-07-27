@@ -64,7 +64,7 @@
 
 ### Direct Execution
 
-`task-implement` 内置直接执行路径，不声称执行完整 Grilling。完整 Grilling 的 `relentlessly about every aspect` 与实现阶段的最小交互目标并不相同。
+`task-fast` 和 `task-implement` 的直接执行路径不声称执行完整 Grilling。完整 Grilling 的 `relentlessly about every aspect` 与实现阶段的最小交互目标并不相同。
 
 直接执行路径应继续保留：
 
@@ -83,6 +83,8 @@
 
 * `.claude/skills/task-explore/SKILL.md`
 * `.claude/skills/bug-explore/SKILL.md`
+* `.claude/skills/task-fast/SKILL.md`
+* `.codex/skills/task-fast/SKILL.md`
 * `.codex/skills/task-explore/SKILL.md`
 * `.codex/skills/bug-explore/SKILL.md`
 * `.claude/skills/task-implement/SKILL.md`
@@ -96,7 +98,7 @@ README 应继续准确说明：
 * 它是方法思想来源，不是运行时依赖
 * 完整 Explore 逐字保留正文
 * Task CLI 不要求也不安装 companion skill
-* 实现阶段的直接执行路径采用较窄的 clarification loop，并通过 proposal gate 处理重要决策
+* `task-fast` 和实现阶段的直接执行路径采用较窄的 clarification loop，并通过 proposal gate 或流程路由处理重要决策
 
 不要在 README 中声称 Task CLI 会删除或阻止用户自行安装的其他 skills。
 
@@ -108,7 +110,7 @@ README 应继续准确说明：
 4. 将最新版正文逐字更新到共用常量。
 5. 检查 frontmatter description 的 leading words 或触发语义是否变化；必要时同步调整 Explore metadata，但不要机械复制上游 skill 名称。
 6. 检查 Task CLI 外围绑定是否仍准确。优先修改外围 workflow，不修改上游正文。
-7. 检查 `task-implement` 的直接执行和 proposal gate 是否需要兼容新版原则；保持实现阶段的窄边界。
+7. 检查 `task-fast`、`task-implement` 的直接执行和 proposal gate 是否需要兼容新版原则；保持实现阶段的窄边界。
 8. 更新 README 中确实发生变化的来源或边界说明，避免重复解释原语。
 9. 运行 `node bin/task.js refresh`，同步 Claude 与 Codex 生成文件。
 10. 完成静态验证、fresh-init 验证、前向测试和独立措辞审查。

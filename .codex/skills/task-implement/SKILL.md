@@ -115,27 +115,27 @@ Do not create a proposal when:
 * an existing project pattern clearly determines the implementation
 * the change is routine and low-risk
 
-An Implementation Proposal should contain only:
+An Implementation Proposal is a concise modification report, not a request for the user to design the implementation. It should contain only:
 
-## Approach
+## Recommended Action
 
-The intended implementation direction.
+The concrete implementation direction the agent intends to take.
 
 ## Affected Areas
 
 Files, modules, or boundaries likely involved.
 
-## Key Decisions
+## Material Decisions
 
-Only decisions that materially affect implementation.
+Only user-owned decisions that materially affect implementation. Omit this section when there is no such decision.
 
 ## Risks
 
 Important uncertainties or possible side effects.
 
-## Confirmation
+## Next Step
 
-Ask whether to proceed.
+State the recommended action and request approval to execute it only because the proposal gate was required. Do not ask the user to choose routine implementation details.
 
 After presenting an Implementation Proposal:
 

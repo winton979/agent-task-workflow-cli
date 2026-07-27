@@ -92,7 +92,7 @@ Request confirmation only when:
 * the fix affects system boundaries or compatibility
 * the regression risk is significant
 
-A Fix Strategy Proposal should contain only:
+A Fix Strategy Proposal is a concise fix report, not a request for the user to design the repair. It should contain only:
 
 ## Root Cause
 
@@ -110,9 +110,9 @@ Affected behavior or components.
 
 What should be verified.
 
-## Confirmation
+## Next Step
 
-Ask whether to proceed.
+State the recommended fix strategy and request approval to execute it only because the proposal gate was required. Do not ask the user to choose routine repair details.
 
 After presenting a Fix Strategy Proposal:
 

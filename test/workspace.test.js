@@ -55,7 +55,7 @@ test('init installs evidence-based brief metadata guidance for task and bug work
   assert.equal(initResult.status, 0, output(initResult));
 
   for (const skillRoot of ['.claude', '.codex']) {
-    for (const skillName of ['task-explore', 'bug-explore']) {
+    for (const skillName of ['task-fast', 'task-explore', 'bug-explore']) {
       const skillPath = path.join(project, skillRoot, 'skills', skillName, 'SKILL.md');
       const skill = readFileSync(skillPath, 'utf-8');
       assert.match(skill, /When one or more values exist, YAML frontmatter MUST appear/);
@@ -67,7 +67,7 @@ test('init installs evidence-based brief metadata guidance for task and bug work
   }
 });
 
-test('init installs implementation and fix proposal gates without plan skills', (t) => {
+test('init installs task-fast plus implementation and fix proposal gates without plan skills', (t) => {
   const project = createTemporaryDirectory(t);
   initializeGitRepository(project);
 
@@ -79,35 +79,49 @@ test('init installs implementation and fix proposal gates without plan skills', 
     const taskImplement = readFileSync(path.join(skillsDirectory, 'task-implement', 'SKILL.md'), 'utf-8');
     const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
 
-    assert.equal(existsSync(path.join(skillsDirectory, 'task-fast', 'SKILL.md')), false);
+    const taskFast = readFileSync(path.join(skillsDirectory, 'task-fast', 'SKILL.md'), 'utf-8');
+
+    assert.match(taskFast, /Fast path for obvious small changes or fixes/);
+    assert.match(taskFast, /User invocation of task-fast is authorization to execute directly/);
+    assert.match(taskFast, /recommend task-explore for changed behavior or bug-explore for a non-obvious defect/);
     assert.equal(existsSync(path.join(skillsDirectory, 'task-plan', 'SKILL.md')), false);
     assert.equal(existsSync(path.join(skillsDirectory, 'bug-plan', 'SKILL.md')), false);
 
     assert.match(taskImplement, /Default to Direct Execution/);
     assert.match(taskImplement, /Implementation Proposal/);
+    assert.match(taskImplement, /concise modification report, not a request for the user to design the implementation/);
+    assert.match(taskImplement, /## Recommended Action/);
+    assert.match(taskImplement, /Do not ask the user to choose routine implementation details/);
     assert.match(taskImplement, /multiple reasonable implementation approaches exist/);
     assert.match(taskImplement, /Do not create a proposal when/);
     assert.match(taskImplement, /Do not repeat broad discovery after confirmation/);
     assert.match(taskImplement, /Do not invent a pre-approval plan for routine work/);
+    assert.doesNotMatch(taskImplement, /Ask whether to proceed/);
     assert.doesNotMatch(taskImplement, /Plan-Aware Preparation/);
     assert.doesNotMatch(taskImplement, /Plan Context/);
 
     assert.match(bugFix, /Fix Strategy Proposal/);
+    assert.match(bugFix, /concise fix report, not a request for the user to design the repair/);
+    assert.match(bugFix, /## Next Step/);
+    assert.match(bugFix, /Do not ask the user to choose routine repair details/);
     assert.match(bugFix, /Do not delay fixes for immaterial uncertainty/);
     assert.match(bugFix, /multiple fixes have materially different trade-offs/);
     assert.match(bugFix, /Do not repeat broad discovery after confirmation/);
+    assert.doesNotMatch(bugFix, /Ask whether to proceed/);
     assert.doesNotMatch(bugFix, /Plan-Aware Preparation/);
     assert.doesNotMatch(bugFix, /Plan Context/);
   }
 
   const refreshResult = runTask(project, 'refresh');
   assert.equal(refreshResult.status, 0, output(refreshResult));
+  assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-fast', 'SKILL.md')), true);
   assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-plan', 'SKILL.md')), false);
   assert.equal(existsSync(path.join(project, '.claude', 'skills', 'bug-plan', 'SKILL.md')), false);
 
   const helpResult = runTask(project, '--help');
   assert.equal(helpResult.status, 0, output(helpResult));
-  assert.doesNotMatch(output(helpResult), /task-fast|task-plan|bug-plan/);
+  assert.match(output(helpResult), /fast: task-fast/);
+  assert.doesNotMatch(output(helpResult), /task-plan|bug-plan/);
 });
 
 test('add-repo promotes an initialized Git project to a portable workspace', (t) => {
@@ -133,11 +147,7 @@ test('add-repo promotes an initialized Git project to a portable workspace', (t)
     'Web application'
   );
   assert.equal(addResult.status, 0, output(addResult));
-  assert.equal(existsSync(staleSkillPath), false);
-  assert.match(
-    readFileSync(path.join(backend, '.codex', 'skills', 'task-implement', 'SKILL.md'), 'utf-8'),
-    /Workspace Context/
-  );
+  assert.match(readFileSync(staleSkillPath, 'utf-8'), /Workspace Context/);
 
   const manifest = JSON.parse(readFileSync(path.join(backend, 'workspace.yaml'), 'utf-8'));
   assert.deepEqual(manifest, {

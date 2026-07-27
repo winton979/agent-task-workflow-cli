@@ -89,6 +89,7 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 | Need | Flow | Result |
 | --- | --- | --- |
 | Understand the existing project | `project-explore` | Read-only, evidence-based explanation; no artifacts or changes. |
+| Obvious small change or fix | `task-fast` | Create a concise execution brief, implement directly, validate, and archive in one flow. |
 | New or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` | A concise, implementation-agnostic task brief followed by validated work. Straightforward changes execute directly; material implementation choices use an in-conversation proposal gate. |
 | Bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` | Evidence, a root-cause-focused fix brief followed by direct fixing or, when needed, an in-conversation fix strategy gate. |
 | Abandon an active attempt | `task-cancel` or `bug-cancel` | Leave the attempt without treating it as completed work. |
@@ -103,6 +104,8 @@ The `grilling` (Grill Me) protocol is the quality gate for a high-quality brief:
 
 `task-explore` and `bug-explore` preserve the protocol: investigate discoverable facts, put material decisions to the user one at a time, and wait for confirmation before acting. In task-cli, acting means creating the brief. No companion interviewing skill is required or installed.
 
+`task-fast` is an explicit low-ceremony path for obvious, localized, low-risk changes or fixes. It still creates and archives a concise task brief, but user invocation authorizes direct implementation when the outcome is clear and existing project conventions determine the approach. If investigation finds material uncertainty, `task-fast` stops and routes changed behavior to `task-explore` or non-obvious defects to `bug-explore`.
+
 For a task requirement, `task-explore` produces `TASK_READY` only when its brief could support a fresh implementation session. This is a readiness check, not a requirement to start a new session. The brief normally stays within 500 words; it may reach 1000 only when needed to preserve execution-critical scope, constraints, risks, or acceptance criteria. Split work that cannot remain coherent within that limit.
 
 `task-implement` rechecks repository facts and relevant current decisions. Current code, tests, configuration, and direct observations describe current behavior; a brief records the confirmed desired contract, while an archive is historical context. A difference between current behavior and the brief's Goal is normally the work to implement, not a contradiction. It follows existing conventions for local, reversible choices, asks about unresolved material decisions, and returns material changes to goal, scope, or acceptance criteria to exploration. When several active briefs could match, identify the intended one rather than relying on recency.
@@ -111,7 +114,7 @@ For a task requirement, `task-explore` produces `TASK_READY` only when its brief
 
 `task-implement` and `bug-fix` default to direct execution. They stop for confirmation only when an unresolved decision can materially change system behavior, architecture or boundaries, compatibility, long-term maintenance, or risk profile. Routine local details stay owned by the agent.
 
-When a task implementation has multiple reasonable approaches, affects boundaries, introduces a durable design decision, or requires material assumptions, `task-implement` presents an `Implementation Proposal` and waits. When bug evidence or correction strategy is materially uncertain, `bug-fix` presents a `Fix Strategy Proposal` and waits. These proposals are conversation-level gates, not `.ai/` artifacts and not separate skills.
+When a task implementation has multiple reasonable approaches, affects boundaries, introduces a durable design decision, or requires material assumptions, `task-implement` presents an `Implementation Proposal`: the agent's recommended modification report, not a request for the user to design the implementation. When bug evidence or correction strategy is materially uncertain, `bug-fix` presents a `Fix Strategy Proposal`: the agent's recommended fix report, not a request for routine repair choices. These proposals are conversation-level gates, not `.ai/` artifacts and not separate skills.
 
 New briefs use YAML frontmatter whenever evidence establishes an `area`, relevant active `decision`, or an evidence-based `working_set`; fields without a value are omitted rather than written as empty placeholders. In a multi-repository workspace, a cross-repository working set lists repository-ID-prefixed paths, such as `frontend/src/auth`; older unprefixed metadata remains valid. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Frontmatter may be omitted only when none of those values is established; older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
 
@@ -136,7 +139,7 @@ task --help
 | Area | Skills |
 | --- | --- |
 | Project understanding | `project-explore` |
-| Tasks | `task-explore`, `task-implement`, `task-audit`, `task-cancel` |
+| Tasks | `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel` |
 | Bugs | `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel` |
 | Decision memory | `decision-log`, `decision-sweep-weekly`, `decision-curate` |
 

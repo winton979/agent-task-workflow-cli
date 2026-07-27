@@ -89,6 +89,7 @@ task repos
 | 需求 | 流程 | 结果 |
 | --- | --- | --- |
 | 理解现有项目 | `project-explore` | 只读、以证据为基础的说明；不创建工件或修改。 |
+| 明显的小改动或小修复 | `task-fast` | 创建简洁执行简报、直接实现、验证，并在一次流程中归档。 |
 | 新增或修改行为 | `task-explore` -> `task-implement` -> 可选 `task-audit` | 先形成简洁且不依赖具体实现的任务简报，再完成经验证的实现。直接执行清晰改动；重要实现选择使用对话内 proposal gate。 |
 | 缺陷修复 | `bug-explore` -> `bug-fix` -> 可选 `bug-audit` | 形成证据和聚焦根因的修复简报，再直接修复，或在必要时使用对话内修复策略 gate。 |
 | 放弃当前尝试 | `task-cancel` 或 `bug-cancel` | 结束该尝试，但不将其视为已完成工作。 |
@@ -103,6 +104,8 @@ task repos
 
 `task-explore` 和 `bug-explore` 会保留该协议：调查可发现的事实，一次向用户提出一个重要决策并等待确认。在 task-cli 中，行动指创建简报。不需要也不会安装额外的访谈技能。
 
+`task-fast` 是一个明确的低仪式路径，用于明显、局部、低风险的小改动或小修复。它仍会创建并归档简洁的任务简报，但当目标清楚且现有项目惯例已决定实现方式时，用户调用即表示授权直接实现。如果调查发现重要不确定性，`task-fast` 会停止，并将行为变更交给 `task-explore`，或将非明显缺陷交给 `bug-explore`。
+
 对于任务需求，只有当其简报足以支持一次新的实现会话时，`task-explore` 才会产出 `TASK_READY`。这是就绪性检查，不要求开始新会话。简报通常不超过 500 词；只有在保留执行所需的范围、约束、风险或验收标准时，才可扩展到 1000 词。无法保持连贯的工作应拆分。
 
 `task-implement` 会重新检查仓库事实和相关当前决策。当前代码、测试、配置和直接观察描述当前行为；简报记录的是已确认的目标契约。当前事实与简报的 Goal 或 Acceptance Criteria 不同通常意味着需要实现的工作；只有当前事实与简报的 Context 或 Constraints 冲突时才应提出冲突。它会遵循本地惯例处理局部且可逆的选择，询问未解决的重要决策，并将对目标、范围或验收标准的实质变更送回探索流程。当多个活动简报可能匹配时，应识别目标简报，而不要依赖最近创建的简报。
@@ -111,7 +114,7 @@ task repos
 
 `task-implement` 和 `bug-fix` 默认直接执行。只有当未解决决策会实质影响系统行为、架构或边界、兼容性、长期维护或风险画像时，才停下来确认。常规的局部实现细节仍由智能体负责。
 
-当任务实现存在多个合理路径、影响边界、引入长期设计决策，或需要会实质影响结果的假设时，`task-implement` 会提出 `Implementation Proposal` 并等待确认。当缺陷证据或修复策略存在重要不确定性时，`bug-fix` 会提出 `Fix Strategy Proposal` 并等待确认。这些 proposal 是对话级决策门，不是 `.ai/` 工件，也不是独立技能。
+当任务实现存在多个合理路径、影响边界、引入长期设计决策，或需要会实质影响结果的假设时，`task-implement` 会提出 `Implementation Proposal`：这是智能体推荐的修改报告，不是要求用户设计实现。当缺陷证据或修复策略存在重要不确定性时，`bug-fix` 会提出 `Fix Strategy Proposal`：这是智能体推荐的修复报告，不是要求用户选择常规修复细节。这些 proposal 是对话级决策门，不是 `.ai/` 工件，也不是独立技能。
 
 新简报只要已根据证据确定了 `areas`、相关活动 `decisions` 或基于证据的 `working_set` 中任一项，就必须使用 YAML frontmatter；没有值的字段应省略，不能写成空占位。在多仓库工作区中，跨仓库工作集必须使用仓库 ID 前缀，例如 `frontend/src/auth` 或 `api/tests/auth`；旧的无前缀元数据仍然有效。这些字段有助于选择上下文，但从不使仓库快照成为权威，也不会将工作集变成硬性边界。只有三项都未能确定时才可省略 frontmatter；没有这些字段的旧简报仍有效。已确认的窄范围澄清记录在 `Revisions` 下；实质性的契约变更会回到探索流程。
 
@@ -136,7 +139,7 @@ task --help
 | 范围 | 技能 |
 | --- | --- |
 | 项目理解 | `project-explore` |
-| 任务 | `task-explore`、`task-implement`、`task-audit`、`task-cancel` |
+| 任务 | `task-fast`、`task-explore`、`task-implement`、`task-audit`、`task-cancel` |
 | 缺陷 | `bug-explore`、`bug-fix`、`bug-audit`、`bug-cancel` |
 | 决策记忆 | `decision-log`、`decision-sweep-weekly`、`decision-curate` |
 

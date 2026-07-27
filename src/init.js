@@ -225,27 +225,27 @@ Do not create a proposal when:
 * an existing project pattern clearly determines the implementation
 * the change is routine and low-risk
 
-An Implementation Proposal should contain only:
+An Implementation Proposal is a concise modification report, not a request for the user to design the implementation. It should contain only:
 
-## Approach
+## Recommended Action
 
-The intended implementation direction.
+The concrete implementation direction the agent intends to take.
 
 ## Affected Areas
 
 Files, modules, or boundaries likely involved.
 
-## Key Decisions
+## Material Decisions
 
-Only decisions that materially affect implementation.
+Only user-owned decisions that materially affect implementation. Omit this section when there is no such decision.
 
 ## Risks
 
 Important uncertainties or possible side effects.
 
-## Confirmation
+## Next Step
 
-Ask whether to proceed.
+State the recommended action and request approval to execute it only because the proposal gate was required. Do not ask the user to choose routine implementation details.
 
 After presenting an Implementation Proposal:
 
@@ -272,7 +272,7 @@ Request confirmation only when:
 * the fix affects system boundaries or compatibility
 * the regression risk is significant
 
-A Fix Strategy Proposal should contain only:
+A Fix Strategy Proposal is a concise fix report, not a request for the user to design the repair. It should contain only:
 
 ## Root Cause
 
@@ -290,9 +290,9 @@ Affected behavior or components.
 
 What should be verified.
 
-## Confirmation
+## Next Step
 
-Ask whether to proceed.
+State the recommended fix strategy and request approval to execute it only because the proposal gate was required. Do not ask the user to choose routine repair details.
 
 After presenting a Fix Strategy Proposal:
 
@@ -446,6 +446,99 @@ ${PROJECT_EXPLORE_BODY}`,
 
 policy:
   allow_implicit_invocation: false
+`,
+  },
+
+  'task-fast': {
+    name: 'task-fast',
+    description: 'Fast path for obvious small changes or fixes. Create a concise execution brief, implement directly, verify, and archive automatically.',
+    content: `---
+name: task-fast
+description: Fast path for obvious small changes or fixes. Create a concise execution brief, implement directly, verify, and archive automatically.
+user-invocable: true
+---
+
+Purpose
+
+Handle an obvious small change or fix in one continuous workflow with minimal ceremony.
+
+Use this only when the intended outcome is clear, the likely change is localized, existing project conventions determine the approach, and no material user-owned decision is expected. User invocation of task-fast is authorization to execute directly under those conditions.
+
+If investigation shows the work is not obvious, not localized, or has material uncertainty around behavior, compatibility, data, security, architecture, or risk, stop and recommend task-explore for changed behavior or bug-explore for a non-obvious defect.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Workflow
+
+1. Read the project code and conventions needed to avoid obvious conflicts.
+2. If a fact can be found by exploring the environment, look it up rather than asking the user.
+3. Ask only questions whose answers can materially change the implementation or acceptance criteria. Ask them one at a time, waiting for feedback on each before continuing. For each question, provide your recommended answer.
+4. Read .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this work.
+5. Create a concise task brief and save it to:
+
+.ai/tasks/active/YYYY-MM-DD-task-name.md
+
+6. Implement the smallest correct change immediately.
+7. If implementation needs a narrow confirmed clarification, record it under Revisions. If it materially changes the Goal, accepted scope, or Acceptance Criteria, stop and require task-explore or bug-explore.
+8. Verify the result against the acceptance criteria.
+9. Archive the brief automatically by moving it to:
+
+.ai/tasks/archive/YYYY-MM-DD-task-name.md
+
+10. Summarize the outcome and any follow-up risks.
+
+${DECISIONS_READ_GUIDANCE}
+
+${COMPLEXITY_ASSESSMENT_GUIDANCE}
+
+${MATERIAL_RISK_GUIDANCE}
+
+${BRIEF_READINESS_GUIDANCE}
+
+${CURRENT_DECISION_CHECK_GUIDANCE}
+
+Task Brief Format
+
+${BRIEF_METADATA_GUIDANCE}
+
+# Goal
+
+What should be achieved.
+
+# Context
+
+Relevant project background. For an obvious small bug, include the observed failure and expected behavior briefly.
+
+# Constraints
+
+Business or technical limitations. When materially supported by the exploration, record complexity expectations such as:
+
+- A new dependency does not currently appear necessary.
+- Existing project boundaries likely remain sufficient.
+- Cross-cutting changes do not currently appear justified.
+
+# Risks
+
+Potential pitfalls.
+
+# Acceptance Criteria
+
+Clear success conditions.
+
+# Revisions
+
+Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
+
+Requirements
+
+* Maximum 350 words
+* No code
+* No architecture digression
+* Only information required for execution
+
+Output
+
+TASK_DONE
 `,
   },
 
@@ -1206,7 +1299,6 @@ Requirements
 };
 
 const LEGACY_MANAGED_SKILL_NAMES = [
-  'task-fast',
   'task-plan',
   'bug-plan',
   'task-review',
@@ -1773,6 +1865,7 @@ export function init(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow initialized. Recommended flows:
   explore: project-explore
+  fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
@@ -1806,6 +1899,7 @@ export function refresh(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   explore: project-explore
+  fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
