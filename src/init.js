@@ -175,11 +175,131 @@ const BUG_FIX_DECISION_GUIDANCE = `When making fix decisions
 * Prefer the smallest behavioral correction that resolves the confirmed root cause or, when no cause is confirmed, the accepted behavioral failure.
 * Introduce new dependencies only when existing project capabilities cannot reasonably solve the problem.`;
 
-function planHandoffGuidance(planSkill) {
-  return `Optional Plan Handoff
+const DECISION_THRESHOLD_GUIDANCE = `Decision Threshold
 
-When the immediately preceding conversation includes a completed ${planSkill} result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.`;
-}
+Ask for confirmation only when the unresolved decision can materially change:
+
+* system behavior
+* architecture or system boundaries
+* compatibility or public contracts
+* long-term maintenance
+* risk profile
+
+Do not ask for confirmation for routine local implementation or fix details when existing conventions are sufficient.`;
+
+const TASK_EXECUTION_MODE_GUIDANCE = `Execution Mode
+
+Task-implement supports two execution modes. Default to Direct Execution.
+
+## Direct Execution
+
+Use when:
+
+* the change scope is clear
+* the required change is explicit from the brief
+* existing project conventions determine the implementation approach
+* no meaningful architectural or design choice is introduced
+
+Inspect the brief and relevant context, apply the smallest correct change, and verify the result. Do not introduce planning or confirmation steps unless required by implementation uncertainty.
+
+## Decision-Gated Execution
+
+Use only when implementation choices materially affect the outcome, architecture or compatibility is involved, or user input is required under the Decision Threshold.
+
+Implementation Proposal
+
+Before modifying files, determine whether the implementation requires user confirmation.
+
+Create an Implementation Proposal only when:
+
+* multiple reasonable implementation approaches exist
+* the change affects system boundaries
+* the change introduces a durable design decision
+* the implementation requires assumptions that materially affect the outcome
+* the risk of choosing incorrectly is significant
+
+Do not create a proposal when:
+
+* the required change is explicit
+* the modification is localized
+* an existing project pattern clearly determines the implementation
+* the change is routine and low-risk
+
+An Implementation Proposal should contain only:
+
+## Approach
+
+The intended implementation direction.
+
+## Affected Areas
+
+Files, modules, or boundaries likely involved.
+
+## Key Decisions
+
+Only decisions that materially affect implementation.
+
+## Risks
+
+Important uncertainties or possible side effects.
+
+## Confirmation
+
+Ask whether to proceed.
+
+After presenting an Implementation Proposal:
+
+* Wait for user confirmation before modifying files.
+* Do not create task artifacts.
+* Do not repeat broad discovery after confirmation.
+* Use the confirmed proposal as implementation context.`;
+
+const BUG_FIX_STRATEGY_GUIDANCE = `Fix Strategy
+
+Bug-fix defaults to fixing directly when evidence is sufficient and the correction is localized.
+
+Do not delay fixes for immaterial uncertainty. If the root cause is sufficiently supported by evidence and the fix is localized, proceed.
+
+Fix Strategy Proposal
+
+Before modifying files, determine whether the fix strategy requires confirmation.
+
+Request confirmation only when:
+
+* the root cause is uncertain
+* multiple fixes have materially different trade-offs
+* the fix changes behavior beyond the reported issue
+* the fix affects system boundaries or compatibility
+* the regression risk is significant
+
+A Fix Strategy Proposal should contain only:
+
+## Root Cause
+
+Observed cause supported by evidence, or the unresolved cause uncertainty.
+
+## Fix Approach
+
+The intended correction.
+
+## Impact
+
+Affected behavior or components.
+
+## Regression Risk
+
+What should be verified.
+
+## Confirmation
+
+Ask whether to proceed.
+
+After presenting a Fix Strategy Proposal:
+
+* Wait for user confirmation before modifying files.
+* Do not create bug artifacts.
+* Do not repeat broad discovery after confirmation.
+* Use the confirmed proposal as fix context.`;
 
 const PROJECT_EXPLORE_DESCRIPTION = 'Build an evidence-based understanding of the existing project without changing it. Use only when the user explicitly invokes project-explore; do not use for implementation, bug investigation, or formal review.';
 const PROJECT_EXPLORE_BODY = `Purpose
@@ -265,7 +385,7 @@ Transitions
 
 If the user's primary intent becomes:
 
-* new or changed behavior: recommend task-fast or task-explore
+* new or changed behavior: recommend task-explore
 * suspected incorrect behavior: recommend bug-explore
 * recording an approved durable decision: recommend decision-log
 * review of a completed task or bug with a brief: recommend task-audit or bug-audit
@@ -326,99 +446,6 @@ ${PROJECT_EXPLORE_BODY}`,
 
 policy:
   allow_implicit_invocation: false
-`,
-  },
-
-  'task-fast': {
-    name: 'task-fast',
-    description: 'Fast path for small requirements. Clarify quickly, create the brief, implement, and verify. Archive automatically on completion.',
-    content: `---
-name: task-fast
-description: Fast path for small requirements. Clarify quickly, create the brief, implement, and verify. Archive automatically on completion.
-user-invocable: true
----
-
-Purpose
-
-Handle a small requirement in one continuous workflow with minimal ceremony.
-
-${WORKSPACE_CONTEXT_GUIDANCE}
-
-Workflow
-
-1. Read the project code and conventions needed to avoid obvious conflicts.
-2. If a fact can be found by exploring the environment, look it up rather than asking the user.
-3. Ask only questions whose answers can change the implementation or acceptance criteria. Ask them one at a time, waiting for feedback on each before continuing. For each question, provide your recommended answer.
-4. Put unresolved decisions to the user; do not make them on the user's behalf.
-5. Read .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
-6. Before finalizing the brief, perform a Complexity Assessment.
-7. Before asking for confirmation, perform a Brief Readiness check.
-8. Create a concise task brief and save it to:
-
-.ai/tasks/active/YYYY-MM-DD-task-name.md
-
-9. Show the brief as the fast-path summary of shared understanding, ask the user to confirm it, and stop. Do not code until the user confirms.
-10. Once the user confirms the brief, perform a Current Decision Check before changing code, then implement immediately.
-11. If implementation needs a narrow confirmed clarification, record it under Revisions. If it materially changes the Goal, accepted scope, or Acceptance Criteria, stop and require task-explore.
-12. Verify the result against the acceptance criteria.
-13. Archive the brief automatically by moving it to:
-
-.ai/tasks/archive/YYYY-MM-DD-task-name.md
-
-14. Summarize the outcome and any follow-up risks.
-
-${DECISIONS_READ_GUIDANCE}
-
-${COMPLEXITY_ASSESSMENT_GUIDANCE}
-
-${MATERIAL_RISK_GUIDANCE}
-
-${BRIEF_READINESS_GUIDANCE}
-
-${CURRENT_DECISION_CHECK_GUIDANCE}
-
-Task Brief Format
-
-${BRIEF_METADATA_GUIDANCE}
-
-# Goal
-
-What should be achieved.
-
-# Context
-
-Relevant project background.
-
-# Constraints
-
-Business or technical limitations. When materially supported by the exploration, record complexity expectations such as:
-
-- A new dependency does not currently appear necessary.
-- Existing project boundaries likely remain sufficient.
-- Cross-cutting changes do not currently appear justified.
-
-# Risks
-
-Potential pitfalls.
-
-# Acceptance Criteria
-
-Clear success conditions.
-
-# Revisions
-
-Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
-
-Requirements
-
-* Maximum 500 words
-* No code
-* No architecture digression
-* Only information required for execution
-
-Output
-
-TASK_DONE
 `,
   },
 
@@ -507,57 +534,6 @@ TASK_READY
 `,
   },
 
-  'task-plan': {
-    name: 'task-plan',
-    description: 'Prepare a concrete, reviewable implementation plan for a selected active task brief without changing project files.',
-    content: `---
-name: task-plan
-description: Prepare a concrete, reviewable implementation plan for a selected active task brief without changing project files.
-user-invocable: true
----
-
-Purpose
-
-Prepare a concrete, reviewable preview of how task-implement would satisfy a selected active task brief. This is optional and does not create a workflow state.
-
-${WORKSPACE_CONTEXT_GUIDANCE}
-
-Rules
-
-1. ${TASK_BRIEF_SELECTION_RULE}
-2. Read the selected brief and inspect the relevant current code before planning.
-3. Do not modify project files, the task brief, decisions, or task archives. Do not create a persistent plan artifact.
-4. An explicit user choice applies only to the current conversation.
-5. When no material choice remains unresolved, show the plan and stop.
-
-${TASK_BRIEF_SUFFICIENCY_GUIDANCE}
-
-${CURRENT_DECISION_CHECK_GUIDANCE}
-
-${TASK_EXECUTION_CONSTRAINT_GUIDANCE}
-
-${TASK_IMPLEMENTATION_DECISION_GUIDANCE}
-
-Output
-
-## Recommended Implementation
-
-List only the relevant files or modules, intended changes, important implementation decisions, and why the approach follows current project conventions. Include an explicit user choice only when one exists.
-
-## Validation
-
-State the checks task-implement should run to demonstrate the acceptance criteria.
-
-## Decision Needed
-
-Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
-
-When no material choice remains unresolved output:
-
-TASK_PLAN_READY
-`,
-  },
-
   'task-implement': {
     name: 'task-implement',
     description: 'Implement a selected active task brief and validate it. Archive automatically when complete.',
@@ -569,35 +545,41 @@ user-invocable: true
 
 Purpose
 
-Implement the intended task from .ai/tasks/active/.
+Implement the intended task from .ai/tasks/active/ while deciding when implementation choices require confirmation.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
 Rules
 
 1. ${TASK_BRIEF_SELECTION_RULE}
-2. Read the selected brief and inspect the relevant current code before planning.
-3. Validate the result before reporting the work complete.
-4. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
-
-${planHandoffGuidance('task-plan')}
+2. Prepare with Brief Sufficiency and Current Decision Check before changing code.
+3. Use Execution Mode below to choose direct execution or an Implementation Proposal.
+4. Validate the result before reporting the work complete.
+5. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
 
 ${TASK_BRIEF_SUFFICIENCY_GUIDANCE}
 
-${TASK_IMPLEMENTATION_RECORD_GUIDANCE}
-
 ${CURRENT_DECISION_CHECK_GUIDANCE}
+
+${TASK_IMPLEMENTATION_RECORD_GUIDANCE}
 
 ${TASK_EXECUTION_CONSTRAINT_GUIDANCE}
 
 ${TASK_IMPLEMENTATION_DECISION_GUIDANCE}
 
+${DECISION_THRESHOLD_GUIDANCE}
+
+${TASK_EXECUTION_MODE_GUIDANCE}
+
 Output
+
+If an Implementation Proposal is required, output only the proposal sections from Execution Mode and wait for confirmation. Do not modify files.
+
+After direct execution or confirmed proposal execution, output:
 
 ## Plan
 
-Short implementation plan.
-State an explicit user choice from a completed task-plan only when one exists.
+Short summary of the implementation path actually used. Do not invent a pre-approval plan for routine work.
 
 ## Changes
 
@@ -810,57 +792,6 @@ BUG_READY
 `,
   },
 
-  'bug-plan': {
-    name: 'bug-plan',
-    description: 'Prepare a concrete, reviewable fix plan for a selected active bug brief without changing project files.',
-    content: `---
-name: bug-plan
-description: Prepare a concrete, reviewable fix plan for a selected active bug brief without changing project files.
-user-invocable: true
----
-
-Purpose
-
-Prepare a concrete, reviewable preview of how bug-fix would correct a selected active bug brief. This is optional and does not create a workflow state.
-
-${WORKSPACE_CONTEXT_GUIDANCE}
-
-Rules
-
-1. ${BUG_BRIEF_SELECTION_RULE}
-2. Recheck the brief's evidence and relevant current behavior before planning.
-3. Do not modify project files, the bug brief, decisions, or bug archives. Do not create a persistent plan artifact.
-4. An explicit user choice applies only to the current conversation.
-5. When no material choice remains unresolved, show the plan and stop.
-
-${BUG_FIX_SUFFICIENCY_GUIDANCE}
-
-${CURRENT_DECISION_CHECK_GUIDANCE}
-
-${BUG_FIX_CONSTRAINT_GUIDANCE}
-
-${BUG_FIX_DECISION_GUIDANCE}
-
-Output
-
-## Recommended Fix
-
-State the confirmed evidence or cause status, relevant files or modules, intended correction, and important fix decisions. When the cause remains unconfirmed, state the discriminating checks before selecting a correction. Include an explicit user choice only when one exists.
-
-## Validation
-
-State the reproduction, regression, and acceptance checks bug-fix should run.
-
-## Decision Needed
-
-Include only while a material user choice remains unresolved. State the options, recommendation, and consequence of each option.
-
-When no material choice remains unresolved output:
-
-BUG_PLAN_READY
-`,
-  },
-
   'bug-fix': {
     name: 'bug-fix',
     description: 'Fix a selected active bug brief and validate the result. Archive automatically when complete.',
@@ -879,11 +810,10 @@ ${WORKSPACE_CONTEXT_GUIDANCE}
 Rules
 
 1. ${BUG_BRIEF_SELECTION_RULE}
-2. Recheck current behavior and the brief's evidence before changing code.
-3. Validate the fix before reporting it complete.
-4. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
-
-${planHandoffGuidance('bug-plan')}
+2. Prepare with Fix Sufficiency and Current Decision Check before changing code.
+3. Use Fix Strategy below to choose direct fixing or a Fix Strategy Proposal.
+4. Validate the fix before reporting it complete.
+5. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
 
 ${BUG_FIX_SUFFICIENCY_GUIDANCE}
 
@@ -893,7 +823,15 @@ ${BUG_FIX_CONSTRAINT_GUIDANCE}
 
 ${BUG_FIX_DECISION_GUIDANCE}
 
+${DECISION_THRESHOLD_GUIDANCE}
+
+${BUG_FIX_STRATEGY_GUIDANCE}
+
 Output
+
+If a Fix Strategy Proposal is required, output only the proposal sections from Fix Strategy and wait for confirmation. Do not modify files.
+
+After direct fixing or confirmed proposal execution, output:
 
 ## Cause Status
 
@@ -902,7 +840,6 @@ Confirmed cause or unresolved hypotheses and confidence.
 ## Fix
 
 Changes made.
-State an explicit user choice from a completed bug-plan only when one exists.
 
 ## Validation
 
@@ -1269,6 +1206,9 @@ Requirements
 };
 
 const LEGACY_MANAGED_SKILL_NAMES = [
+  'task-fast',
+  'task-plan',
+  'bug-plan',
   'task-review',
   'bug-review',
 ];
@@ -1833,10 +1773,8 @@ export function init(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow initialized. Recommended flows:
   explore: project-explore
-  fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
-  plan:  task-plan | bug-plan (optional, review-only)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);
@@ -1868,10 +1806,8 @@ export function refresh(cwd, { fs, path, log }) {
 
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   explore: project-explore
-  fast:  task-fast
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
-  plan:  task-plan | bug-plan (optional, review-only)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
   sweep: decision-sweep-weekly`);

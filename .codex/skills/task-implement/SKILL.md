@@ -6,7 +6,7 @@ user-invocable: true
 
 Purpose
 
-Implement the intended task from .ai/tasks/active/.
+Implement the intended task from .ai/tasks/active/ while deciding when implementation choices require confirmation.
 
 Workspace Context
 
@@ -21,13 +21,10 @@ When workspace.yaml exists at the workflow root, read its repository IDs, paths,
 Rules
 
 1. Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
-2. Read the selected brief and inspect the relevant current code before planning.
-3. Validate the result before reporting the work complete.
-4. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
-
-Optional Plan Handoff
-
-When the immediately preceding conversation includes a completed task-plan result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.
+2. Prepare with Brief Sufficiency and Current Decision Check before changing code.
+3. Use Execution Mode below to choose direct execution or an Implementation Proposal.
+4. Validate the result before reporting the work complete.
+5. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
 
 Brief Sufficiency
 
@@ -42,8 +39,6 @@ Before planning or changing code, and whenever planning or implementation reveal
 * If clarification materially changes the Goal, accepted scope, or Acceptance Criteria, or the unresolved decisions collectively require material contract revision, stop and require renewed task-explore. Do not continue against an outdated brief.
 * If current project state materially contradicts the brief's context, surface the conflict and resolve it under the same rules.
 
-When implementation expands the working set, record the reason in the selected active brief's Context or Revisions. After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
-
 Current Decision Check
 
 Before planning or changing code, inspect .ai/decisions/decisions.md when it contains real entries:
@@ -51,6 +46,8 @@ Before planning or changing code, inspect .ai/decisions/decisions.md when it con
 * revalidate every decision identifier named in brief metadata
 * extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
 * if a referenced decision is inactive, missing, or contradicted by a newly relevant active decision, surface the conflict and do not choose a winner without user confirmation
+
+When implementation expands the working set, record the reason in the selected active brief's Context or Revisions. After explicit confirmation of a narrow clarification, record its date, exact change, and reason under Revisions in the selected active brief before continuing implementation.
 
 Implementation Constraints
 
@@ -68,12 +65,94 @@ When making implementation decisions
 * Introduce a new dependency or abstraction only when no in-project option exists, and state why.
 * Do not optimize for hypothetical future reuse.
 
+Decision Threshold
+
+Ask for confirmation only when the unresolved decision can materially change:
+
+* system behavior
+* architecture or system boundaries
+* compatibility or public contracts
+* long-term maintenance
+* risk profile
+
+Do not ask for confirmation for routine local implementation or fix details when existing conventions are sufficient.
+
+Execution Mode
+
+Task-implement supports two execution modes. Default to Direct Execution.
+
+## Direct Execution
+
+Use when:
+
+* the change scope is clear
+* the required change is explicit from the brief
+* existing project conventions determine the implementation approach
+* no meaningful architectural or design choice is introduced
+
+Inspect the brief and relevant context, apply the smallest correct change, and verify the result. Do not introduce planning or confirmation steps unless required by implementation uncertainty.
+
+## Decision-Gated Execution
+
+Use only when implementation choices materially affect the outcome, architecture or compatibility is involved, or user input is required under the Decision Threshold.
+
+Implementation Proposal
+
+Before modifying files, determine whether the implementation requires user confirmation.
+
+Create an Implementation Proposal only when:
+
+* multiple reasonable implementation approaches exist
+* the change affects system boundaries
+* the change introduces a durable design decision
+* the implementation requires assumptions that materially affect the outcome
+* the risk of choosing incorrectly is significant
+
+Do not create a proposal when:
+
+* the required change is explicit
+* the modification is localized
+* an existing project pattern clearly determines the implementation
+* the change is routine and low-risk
+
+An Implementation Proposal should contain only:
+
+## Approach
+
+The intended implementation direction.
+
+## Affected Areas
+
+Files, modules, or boundaries likely involved.
+
+## Key Decisions
+
+Only decisions that materially affect implementation.
+
+## Risks
+
+Important uncertainties or possible side effects.
+
+## Confirmation
+
+Ask whether to proceed.
+
+After presenting an Implementation Proposal:
+
+* Wait for user confirmation before modifying files.
+* Do not create task artifacts.
+* Do not repeat broad discovery after confirmation.
+* Use the confirmed proposal as implementation context.
+
 Output
+
+If an Implementation Proposal is required, output only the proposal sections from Execution Mode and wait for confirmation. Do not modify files.
+
+After direct execution or confirmed proposal execution, output:
 
 ## Plan
 
-Short implementation plan.
-State an explicit user choice from a completed task-plan only when one exists.
+Short summary of the implementation path actually used. Do not invent a pre-approval plan for routine work.
 
 ## Changes
 

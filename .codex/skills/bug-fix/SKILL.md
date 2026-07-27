@@ -21,13 +21,10 @@ When workspace.yaml exists at the workflow root, read its repository IDs, paths,
 Rules
 
 1. Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.
-2. Recheck current behavior and the brief's evidence before changing code.
-3. Validate the fix before reporting it complete.
-4. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
-
-Optional Plan Handoff
-
-When the immediately preceding conversation includes a completed bug-plan result, reuse its recommended approach and the user's explicit choices only after rechecking the selected brief, current facts, and active decisions. Treat them as implementation preferences, not as a replacement for these rules or authorization to change the accepted contract. Direct execution does not require a plan.
+2. Prepare with Fix Sufficiency and Current Decision Check before changing code.
+3. Use Fix Strategy below to choose direct fixing or a Fix Strategy Proposal.
+4. Validate the fix before reporting it complete.
+5. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
 
 Fix Sufficiency
 
@@ -65,7 +62,70 @@ When making fix decisions
 * Prefer the smallest behavioral correction that resolves the confirmed root cause or, when no cause is confirmed, the accepted behavioral failure.
 * Introduce new dependencies only when existing project capabilities cannot reasonably solve the problem.
 
+Decision Threshold
+
+Ask for confirmation only when the unresolved decision can materially change:
+
+* system behavior
+* architecture or system boundaries
+* compatibility or public contracts
+* long-term maintenance
+* risk profile
+
+Do not ask for confirmation for routine local implementation or fix details when existing conventions are sufficient.
+
+Fix Strategy
+
+Bug-fix defaults to fixing directly when evidence is sufficient and the correction is localized.
+
+Do not delay fixes for immaterial uncertainty. If the root cause is sufficiently supported by evidence and the fix is localized, proceed.
+
+Fix Strategy Proposal
+
+Before modifying files, determine whether the fix strategy requires confirmation.
+
+Request confirmation only when:
+
+* the root cause is uncertain
+* multiple fixes have materially different trade-offs
+* the fix changes behavior beyond the reported issue
+* the fix affects system boundaries or compatibility
+* the regression risk is significant
+
+A Fix Strategy Proposal should contain only:
+
+## Root Cause
+
+Observed cause supported by evidence, or the unresolved cause uncertainty.
+
+## Fix Approach
+
+The intended correction.
+
+## Impact
+
+Affected behavior or components.
+
+## Regression Risk
+
+What should be verified.
+
+## Confirmation
+
+Ask whether to proceed.
+
+After presenting a Fix Strategy Proposal:
+
+* Wait for user confirmation before modifying files.
+* Do not create bug artifacts.
+* Do not repeat broad discovery after confirmation.
+* Use the confirmed proposal as fix context.
+
 Output
+
+If a Fix Strategy Proposal is required, output only the proposal sections from Fix Strategy and wait for confirmation. Do not modify files.
+
+After direct fixing or confirmed proposal execution, output:
 
 ## Cause Status
 
@@ -74,7 +134,6 @@ Confirmed cause or unresolved hypotheses and confidence.
 ## Fix
 
 Changes made.
-State an explicit user choice from a completed bug-plan only when one exists.
 
 ## Validation
 

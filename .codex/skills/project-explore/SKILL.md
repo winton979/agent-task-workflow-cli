@@ -94,7 +94,7 @@ Transitions
 
 If the user's primary intent becomes:
 
-* new or changed behavior: recommend task-fast or task-explore
+* new or changed behavior: recommend task-explore
 * suspected incorrect behavior: recommend bug-explore
 * recording an approved durable decision: recommend decision-log
 * review of a completed task or bug with a brief: recommend task-audit or bug-audit
