@@ -48,6 +48,8 @@ For a full-stack system split across repositories, initialize task-cli in the di
 task init
 task add-repo ../frontend --id frontend --description "Web application"
 task bind-repo frontend D:/work/acme/web-client
+task disable-repo frontend
+task enable-repo frontend --local
 task repos
 ```
 
@@ -65,6 +67,8 @@ The first `task add-repo` creates `workspace.yaml` and refreshes task-cli-manage
 
 `workspace.yaml` uses JSON syntax, which is a YAML-compatible subset, so it stays dependency-free and can be safely versioned with the workflow root. Repository paths are relative to that root; keep related checkouts in a portable layout. `task init` alone does not create this file, so existing single-project workflows remain unchanged.
 
+Set `"disabled": true` on a repository that is intentionally out of scope for the current development cycle. Managed skills skip disabled repositories during routine exploration and indexing, and `task doctor` does not require their paths to exist. An explicit user request for that repository still takes precedence.
+
 When an individual developer keeps repositories in a different layout, run `task bind-repo <id> <path>`. It writes an ignored `workspace.local.yaml` that maps repository IDs to local paths. A local path may be absolute or relative to the workflow root and overrides the shared default only on that machine.
 
 For a workflow initialized by an earlier task-cli version, run `task refresh` before the first binding so its `.gitignore` excludes the local file. `task bind-repo` refuses to write a local config that Git would track; remove any later `!workspace.local.yaml` rule first. If the file was already tracked, remove it from Git's index before binding.
@@ -79,6 +83,21 @@ For a workflow initialized by an earlier task-cli version, run `task refresh` be
 ```
 
 `task repos` and `task doctor` use the resolved paths. `task bind-repo` requires the path to be a Git repository root and rejects binding the same repository to more than one ID. `task doctor` reports missing, non-Git, duplicate, or non-root paths.
+
+`workspace.local.yaml` may also override a repository's disabled state. Existing string path entries remain valid; use an object when setting either local option:
+
+```json
+{
+  "version": 1,
+  "repositories": {
+    "frontend": { "path": "D:/work/acme/web-client", "disabled": true }
+  }
+}
+```
+
+A local `disabled: false` re-enables a repository disabled in the shared manifest.
+
+Use `task disable-repo <id>` and `task enable-repo <id>` to change the shared manifest. Add `--local` to change only the ignored local override, which is useful for a developer-specific cycle. `task repos` displays `[enabled]` or `[disabled]` for every resolved repository.
 
 The manifest is a context map, not an instruction to load every repository. Agents first identify the repositories relevant to the request, then record cross-repository working sets with repository-prefixed paths such as `frontend/src/auth`.
 

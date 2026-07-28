@@ -29,6 +29,7 @@ Before reading or writing any .ai path, determine the workflow state root. Manag
 Without context_repository, the launch root remains the workflow state root and its workspace manifest is the repository map.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
+* Treat repositories whose resolved disabled flag is true as unavailable for routine development in the current cycle. Do not select, inspect, index, or include them in a working set unless the user explicitly asks about that repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
 * For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
 * Run commands from the relevant repository directory. Do not assume a workflow-state-root Git diff represents changes in registered repositories.
@@ -1506,6 +1507,15 @@ function localWorkspaceIsIgnored(path, cwd) {
   return gitCommandSucceeds(['-C', cwd, 'check-ignore', '--no-index', '--quiet', '--', WORKSPACE_LOCAL_FILE]);
 }
 
+function assertLocalWorkspaceIsWritable(path, cwd) {
+  if (localWorkspaceIsTracked(path, cwd)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} is tracked. Remove it from the Git index before changing local workspace settings.`);
+  }
+  if (!localWorkspaceIsIgnored(path, cwd)) {
+    throw new Error(`${WORKSPACE_LOCAL_FILE} is not ignored. Run \`task refresh\`, then remove any later negating rule before changing local workspace settings.`);
+  }
+}
+
 function workflowIsInitialized(fs, path, cwd) {
   try {
     return fs.existsSync(path.join(workflowStateRoot(fs, path, cwd), DECISIONS_FILE));
@@ -1569,6 +1579,9 @@ function validateWorkspace(workspace, path) {
       && (typeof repository.description !== 'string' || !repository.description.trim())) {
       throw new Error(`${WORKSPACE_FILE} repository descriptions must be non-empty strings when provided.`);
     }
+    if (repository.disabled !== undefined && typeof repository.disabled !== 'boolean') {
+      throw new Error(`${WORKSPACE_FILE} repository disabled flags must be booleans when provided.`);
+    }
   }
 
   if (workspace.context_repository !== undefined) {
@@ -1618,12 +1631,28 @@ function validateLocalWorkspace(localWorkspace, workspace) {
   }
 
   const repositoryIds = new Set(workspace.repositories.map((repository) => repository.id));
-  for (const [id, repositoryPath] of Object.entries(localWorkspace.repositories)) {
+  for (const [id, repositoryOverride] of Object.entries(localWorkspace.repositories)) {
     if (!repositoryIds.has(id)) {
       throw new Error(`${WORKSPACE_LOCAL_FILE} contains an unknown repository ID "${id}".`);
     }
-    if (typeof repositoryPath !== 'string' || !repositoryPath.trim()) {
+    if (typeof repositoryOverride === 'string') {
+      if (!repositoryOverride.trim()) {
+        throw new Error(`${WORKSPACE_LOCAL_FILE} repository paths must be non-empty strings.`);
+      }
+      continue;
+    }
+    if (!repositoryOverride || typeof repositoryOverride !== 'object' || Array.isArray(repositoryOverride)) {
+      throw new Error(`${WORKSPACE_LOCAL_FILE} repository overrides must be paths or objects.`);
+    }
+    if (repositoryOverride.path === undefined && repositoryOverride.disabled === undefined) {
+      throw new Error(`${WORKSPACE_LOCAL_FILE} repository overrides must specify a path or disabled state.`);
+    }
+    if (repositoryOverride.path !== undefined
+      && (typeof repositoryOverride.path !== 'string' || !repositoryOverride.path.trim())) {
       throw new Error(`${WORKSPACE_LOCAL_FILE} repository paths must be non-empty strings.`);
+    }
+    if (repositoryOverride.disabled !== undefined && typeof repositoryOverride.disabled !== 'boolean') {
+      throw new Error(`${WORKSPACE_LOCAL_FILE} repository disabled flags must be booleans when provided.`);
     }
   }
 
@@ -1652,10 +1681,17 @@ function writeLocalWorkspace(fs, path, cwd, workspace, localWorkspace) {
 }
 
 function resolvedWorkspaceRepositories(workspace, localWorkspace) {
-  return workspace.repositories.map((repository) => ({
-    ...repository,
-    path: localWorkspace?.repositories[repository.id] ?? repository.path,
-  }));
+  return workspace.repositories.map((repository) => {
+    const localRepository = localWorkspace?.repositories[repository.id];
+    const override = typeof localRepository === 'string'
+      ? { path: localRepository }
+      : localRepository;
+    return {
+      ...repository,
+      path: override?.path ?? repository.path,
+      disabled: override?.disabled ?? repository.disabled ?? false,
+    };
+  });
 }
 
 function configuredContextRepository(fs, path, cwd) {
@@ -1667,6 +1703,9 @@ function configuredContextRepository(fs, path, cwd) {
   const localWorkspace = readLocalWorkspace(fs, path, cwd, workspace);
   const repository = resolvedWorkspaceRepositories(workspace, localWorkspace)
     .find((candidate) => candidate.id === workspace.context_repository);
+  if (repository.disabled) {
+    throw new Error(`Configured context repository "${repository.id}" is disabled.`);
+  }
   const configuredPath = path.resolve(cwd, repository.path);
 
   let contextRoot;
@@ -1826,6 +1865,9 @@ export function useContext(cwd, id, { fs, path, log }) {
   if (!repository) {
     throw new Error(`Unknown workspace repository ID: ${id}`);
   }
+  if (repository.disabled) {
+    throw new Error(`Cannot select disabled workspace repository as context: ${repositoryId}`);
+  }
 
   const configuredPath = path.resolve(workflowRoot, repository.path);
   const contextRoot = resolveGitRepository(fs, path, configuredPath);
@@ -1866,12 +1908,7 @@ export function bindRepo(cwd, id, repositoryPath, { fs, path, log }) {
   if (!workspace.repositories.some((repository) => repository.id === repositoryId)) {
     throw new Error(`Unknown workspace repository ID: ${id}`);
   }
-  if (localWorkspaceIsTracked(path, workflowRoot)) {
-    throw new Error(`${WORKSPACE_LOCAL_FILE} is tracked. Remove it from the Git index before binding a local repository path.`);
-  }
-  if (!localWorkspaceIsIgnored(path, workflowRoot)) {
-    throw new Error(`${WORKSPACE_LOCAL_FILE} is not ignored. Run \`task refresh\`, then remove any later negating rule before binding a local repository path.`);
-  }
+  assertLocalWorkspaceIsWritable(path, workflowRoot);
 
   const repositoryRoot = resolveGitRepository(
     fs,
@@ -1885,7 +1922,12 @@ export function bindRepo(cwd, id, repositoryPath, { fs, path, log }) {
   const localPath = path.isAbsolute(repositoryPath)
     ? repositoryRoot.split(path.sep).join('/')
     : (path.relative(workflowRoot, repositoryRoot) || '.').split(path.sep).join('/');
-  localWorkspace.repositories[repositoryId] = localPath;
+  const existingOverride = localWorkspace.repositories[repositoryId];
+  if (existingOverride && typeof existingOverride === 'object') {
+    existingOverride.path = localPath;
+  } else {
+    localWorkspace.repositories[repositoryId] = localPath;
+  }
 
   const repositories = resolvedWorkspaceRepositories(workspace, localWorkspace);
   if (hasRepositoryRoot(fs, path, workflowRoot, repositories, repositoryRoot, repositoryId)) {
@@ -1894,7 +1936,57 @@ export function bindRepo(cwd, id, repositoryPath, { fs, path, log }) {
 
   writeLocalWorkspace(fs, path, workflowRoot, workspace, localWorkspace);
   log.chalk.green(`  ✓ ${WORKSPACE_LOCAL_FILE}`);
-  log.info(`Bound repository ${repositoryId}: ${localWorkspace.repositories[repositoryId]}`);
+  log.info(`Bound repository ${repositoryId}: ${localPath}`);
+}
+
+export function setRepoDisabled(cwd, id, disabled, { local, fs, path, log }) {
+  if (!workflowIsInitialized(fs, path, cwd)) {
+    throw new Error('Task workflow is not initialized here. Run `task init` first.');
+  }
+
+  const workflowRoot = canonicalPath(fs, path, cwd);
+  const workspace = readWorkspace(fs, path, workflowRoot);
+  if (!workspace) {
+    throw new Error(`No ${WORKSPACE_FILE} found. Run \`task add-repo\` before changing repository status.`);
+  }
+
+  const repositoryId = normalizeRepositoryId(id);
+  const repository = workspace.repositories.find((candidate) => candidate.id === repositoryId);
+  if (!repository) {
+    throw new Error(`Unknown workspace repository ID: ${id}`);
+  }
+  if (disabled && workspace.context_repository === repositoryId) {
+    throw new Error(`Cannot disable configured context repository: ${repositoryId}`);
+  }
+
+  if (local) {
+    assertLocalWorkspaceIsWritable(path, workflowRoot);
+    const localWorkspace = readLocalWorkspace(fs, path, workflowRoot, workspace) || {
+      version: WORKSPACE_VERSION,
+      repositories: {},
+    };
+    const existingOverride = localWorkspace.repositories[repositoryId];
+    const localPath = typeof existingOverride === 'string'
+      ? existingOverride
+      : existingOverride?.path;
+    localWorkspace.repositories[repositoryId] = {
+      ...(localPath === undefined ? {} : { path: localPath }),
+      disabled,
+    };
+    writeLocalWorkspace(fs, path, workflowRoot, workspace, localWorkspace);
+    log.chalk.green(`  ✓ ${WORKSPACE_LOCAL_FILE}`);
+    log.info(`${disabled ? 'Disabled' : 'Enabled'} repository ${repositoryId} locally.`);
+    return;
+  }
+
+  if (disabled) {
+    repository.disabled = true;
+  } else {
+    delete repository.disabled;
+  }
+  writeWorkspace(fs, path, workflowRoot, workspace);
+  log.chalk.green(`  ✓ ${WORKSPACE_FILE}`);
+  log.info(`${disabled ? 'Disabled' : 'Enabled'} repository ${repositoryId} in the workspace manifest.`);
 }
 
 export function listRepos(cwd, { fs, path, log }) {
@@ -1909,7 +2001,8 @@ export function listRepos(cwd, { fs, path, log }) {
   log.info('Workspace repositories:');
   for (const repository of repositories) {
     const description = repository.description ? ` - ${repository.description}` : '';
-    log.info(`  ${repository.id}\t${repository.path}${description}`);
+    const status = repository.disabled ? 'disabled' : 'enabled';
+    log.info(`  ${repository.id}\t${repository.path}${description} [${status}]`);
   }
   return repositories;
 }
@@ -1940,6 +2033,11 @@ function doctorWorkspace(fs, path, cwd, log) {
 
   for (const repository of repositories) {
     const label = `workspace repository ${repository.id}`;
+    if (repository.disabled) {
+      checks.push(true);
+      logCheck(log, true, label, 'disabled');
+      continue;
+    }
     const configuredPath = path.resolve(cwd, repository.path);
     if (!fs.existsSync(configuredPath) || !fs.statSync(configuredPath).isDirectory()) {
       checks.push(false);

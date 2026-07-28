@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
-import { addRepo, bindRepo, doctor, init, listRepos, refresh, useContext } from './init.js';
+import { addRepo, bindRepo, doctor, init, listRepos, refresh, setRepoDisabled, useContext } from './init.js';
 
 const cwd = process.cwd();
 const cmd = process.argv[2];
@@ -26,6 +26,10 @@ Usage:
                 Store workflow state in a registered Git repository
   task bind-repo <id> <path>
                 Override a workspace repository path on this machine
+  task enable-repo <id> [--local]
+                Include a workspace repository in routine development
+  task disable-repo <id> [--local]
+                Exclude a workspace repository from routine development
   task repos    List repositories in the current workflow workspace
   task refresh  Reinstall task-cli managed workflow skills
   task doctor   Check workflow setup and skill freshness
@@ -60,6 +64,16 @@ function parseAddRepoOptions(args) {
   return options;
 }
 
+function parseRepositoryScope(args) {
+  if (args.length === 0) {
+    return false;
+  }
+  if (args.length === 1 && args[0] === '--local') {
+    return true;
+  }
+  throw new Error('enable-repo and disable-repo accept only the optional --local flag.');
+}
+
 try {
   switch (cmd) {
     case 'init':
@@ -88,6 +102,20 @@ try {
         throw new Error('bind-repo requires a repository ID and path.');
       }
       bindRepo(cwd, id, repoPath, { fs, path, log });
+      break;
+    }
+    case 'enable-repo':
+    case 'disable-repo': {
+      const id = process.argv[3];
+      if (!id || id.startsWith('--')) {
+        throw new Error(`${cmd} requires a repository ID.`);
+      }
+      setRepoDisabled(cwd, id, cmd === 'disable-repo', {
+        local: parseRepositoryScope(process.argv.slice(4)),
+        fs,
+        path,
+        log,
+      });
       break;
     }
     case 'repos':

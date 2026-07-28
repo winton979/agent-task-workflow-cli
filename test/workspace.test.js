@@ -328,6 +328,115 @@ test('doctor validates repository paths only when workspace mode is enabled', (t
   assert.match(output(result), /workspace repository frontend - missing at ..\/frontend/);
 });
 
+test('disabled workspace repositories are skipped and local configuration can re-enable them', (t) => {
+  const parent = createTemporaryDirectory(t);
+  const backend = path.join(parent, 'backend');
+  const frontend = path.join(parent, 'frontend');
+  initializeGitRepository(backend);
+  initializeGitRepository(frontend);
+
+  assert.equal(runTask(backend, 'init').status, 0);
+  assert.equal(runTask(backend, 'add-repo', '../frontend', '--id', 'frontend').status, 0);
+  const manifestPath = path.join(backend, 'workspace.yaml');
+  const workspace = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  workspace.repositories.find((repository) => repository.id === 'frontend').disabled = true;
+  writeFileSync(manifestPath, `${JSON.stringify(workspace, null, 2)}\n`);
+  rmSync(frontend, { recursive: true, force: true });
+
+  const reposResult = runTask(backend, 'repos');
+  assert.equal(reposResult.status, 0, output(reposResult));
+  assert.match(output(reposResult), /frontend\t..\/frontend \[disabled\]/);
+
+  const disabledDoctorResult = runTask(backend, 'doctor');
+  assert.equal(disabledDoctorResult.status, 0, output(disabledDoctorResult));
+  assert.match(output(disabledDoctorResult), /workspace repository frontend - disabled/);
+  assert.doesNotMatch(output(disabledDoctorResult), /workspace repository frontend - missing/);
+
+  writeFileSync(path.join(backend, 'workspace.local.yaml'), `${JSON.stringify({
+    version: 1,
+    repositories: { frontend: { disabled: false } },
+  }, null, 2)}\n`);
+  const reenabledDoctorResult = runTask(backend, 'doctor');
+  assert.equal(reenabledDoctorResult.status, 0, output(reenabledDoctorResult));
+  assert.match(output(reenabledDoctorResult), /workspace repository frontend - missing at ..\/frontend/);
+
+  const projectExplore = readFileSync(
+    path.join(backend, '.codex', 'skills', 'project-explore', 'SKILL.md'),
+    'utf-8'
+  );
+  assert.match(projectExplore, /disabled flag is true.*Do not select, inspect, index/);
+});
+
+test('enable-repo and disable-repo update shared and local repository status', (t) => {
+  const parent = createTemporaryDirectory(t);
+  const backend = path.join(parent, 'backend');
+  const frontend = path.join(parent, 'frontend');
+  initializeGitRepository(backend);
+  initializeGitRepository(frontend);
+
+  assert.equal(runTask(backend, 'init').status, 0);
+  assert.equal(runTask(backend, 'add-repo', '../frontend', '--id', 'frontend').status, 0);
+
+  const disabledResult = runTask(backend, 'disable-repo', 'frontend');
+  assert.equal(disabledResult.status, 0, output(disabledResult));
+  assert.match(output(disabledResult), /Disabled repository frontend in the workspace manifest/);
+  let workspace = JSON.parse(readFileSync(path.join(backend, 'workspace.yaml'), 'utf-8'));
+  assert.equal(workspace.repositories.find((repository) => repository.id === 'frontend').disabled, true);
+
+  const disabledReposResult = runTask(backend, 'repos');
+  assert.equal(disabledReposResult.status, 0, output(disabledReposResult));
+  assert.match(output(disabledReposResult), /backend\t\. \[enabled\]/);
+  assert.match(output(disabledReposResult), /frontend\t..\/frontend \[disabled\]/);
+
+  const enabledResult = runTask(backend, 'enable-repo', 'frontend');
+  assert.equal(enabledResult.status, 0, output(enabledResult));
+  workspace = JSON.parse(readFileSync(path.join(backend, 'workspace.yaml'), 'utf-8'));
+  assert.equal(workspace.repositories.find((repository) => repository.id === 'frontend').disabled, undefined);
+
+  const bindResult = runTask(backend, 'bind-repo', 'frontend', '../frontend');
+  assert.equal(bindResult.status, 0, output(bindResult));
+  const boundLocalWorkspace = JSON.parse(readFileSync(path.join(backend, 'workspace.local.yaml'), 'utf-8'));
+  const boundLocalPath = boundLocalWorkspace.repositories.frontend;
+
+  const locallyDisabledResult = runTask(backend, 'disable-repo', 'frontend', '--local');
+  assert.equal(locallyDisabledResult.status, 0, output(locallyDisabledResult));
+  let localWorkspace = JSON.parse(readFileSync(path.join(backend, 'workspace.local.yaml'), 'utf-8'));
+  assert.deepEqual(localWorkspace.repositories.frontend, { path: boundLocalPath, disabled: true });
+
+  const locallyEnabledResult = runTask(backend, 'enable-repo', 'frontend', '--local');
+  assert.equal(locallyEnabledResult.status, 0, output(locallyEnabledResult));
+  localWorkspace = JSON.parse(readFileSync(path.join(backend, 'workspace.local.yaml'), 'utf-8'));
+  assert.deepEqual(localWorkspace.repositories.frontend, { path: boundLocalPath, disabled: false });
+
+  const unknownResult = runTask(backend, 'disable-repo', 'unknown');
+  assert.notEqual(unknownResult.status, 0);
+  assert.match(output(unknownResult), /Unknown workspace repository ID/);
+
+  const helpResult = runTask(backend, '--help');
+  assert.equal(helpResult.status, 0, output(helpResult));
+  assert.match(output(helpResult), /task enable-repo <id> \[--local\]/);
+  assert.match(output(helpResult), /task disable-repo <id> \[--local\]/);
+});
+
+test('workspace disabled flags must be boolean', (t) => {
+  const parent = createTemporaryDirectory(t);
+  const backend = path.join(parent, 'backend');
+  const frontend = path.join(parent, 'frontend');
+  initializeGitRepository(backend);
+  initializeGitRepository(frontend);
+
+  assert.equal(runTask(backend, 'init').status, 0);
+  assert.equal(runTask(backend, 'add-repo', '../frontend', '--id', 'frontend').status, 0);
+  writeFileSync(path.join(backend, 'workspace.local.yaml'), `${JSON.stringify({
+    version: 1,
+    repositories: { frontend: { disabled: 'true' } },
+  }, null, 2)}\n`);
+
+  const result = runTask(backend, 'doctor');
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /workspace\.local\.yaml repository disabled flags must be booleans/);
+});
+
 test('bind-repo overrides a shared repository path only on the local machine', (t) => {
   const parent = createTemporaryDirectory(t);
   const backend = path.join(parent, 'backend');

@@ -48,6 +48,8 @@ task refresh
 task init
 task add-repo ../frontend --id frontend --description "Web application"
 task bind-repo frontend D:/work/acme/web-client
+task disable-repo frontend
+task enable-repo frontend --local
 task repos
 ```
 
@@ -65,6 +67,8 @@ task repos
 
 `workspace.yaml` 使用 JSON 语法，这是 YAML 的兼容子集，因此无需依赖即可安全地随工作流根目录纳入版本控制。仓库路径相对于该根目录；请将相关 checkout 保持在可移植的布局中。仅运行 `task init` 不会创建这个文件，因此已有的单项目工作流不受影响。
 
+对于当前开发周期内明确不需要的仓库，可设置 `"disabled": true`。托管 skills 会在常规 explore 和索引时跳过该仓库，`task doctor` 也不要求其路径存在；用户明确要求该仓库时仍以用户请求为准。
+
 当某位开发者以不同的目录布局保存仓库时，运行 `task bind-repo <id> <path>`。它会写入被忽略的 `workspace.local.yaml`，将仓库 ID 映射到本地路径。本地路径可以是绝对路径，也可以相对于工作流根目录，并且只在该机器上覆盖共享默认路径。
 
 对于由旧版 task-cli 初始化的工作流，请在首次绑定前运行 `task refresh`，以便 `.gitignore` 忽略本地文件。`task bind-repo` 拒绝写入会被 Git 跟踪的本地配置；请先移除其后出现的 `!workspace.local.yaml` 规则。如果文件已被跟踪，请在绑定前将它从 Git 索引中移除。
@@ -79,6 +83,21 @@ task repos
 ```
 
 `task repos` 和 `task doctor` 使用解析后的路径。`task bind-repo` 要求路径是 Git 仓库根目录，并拒绝将同一仓库绑定到多个 ID。`task doctor` 会报告缺失、非 Git、重复或不是根目录的路径。
+
+`workspace.local.yaml` 也可以覆盖单个仓库的 disabled 状态。原有的字符串路径写法继续有效；需要设置本地选项时请使用对象：
+
+```json
+{
+  "version": 1,
+  "repositories": {
+    "frontend": { "path": "D:/work/acme/web-client", "disabled": true }
+  }
+}
+```
+
+本地配置中的 `disabled: false` 可以重新启用共享清单中已禁用的仓库。
+
+使用 `task disable-repo <id>` 和 `task enable-repo <id>` 修改共享清单；附加 `--local` 则只修改被忽略的本地覆盖配置，适用于个人开发周期。`task repos` 会为每个解析后的仓库显示 `[enabled]` 或 `[disabled]`。
 
 该清单是上下文映射，不是要求加载每个仓库的指令。智能体会先确定与请求相关的仓库，再使用带仓库 ID 前缀的路径记录跨仓库工作集，例如 `frontend/src/auth`。
 
