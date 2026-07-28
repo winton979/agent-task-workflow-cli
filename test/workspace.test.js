@@ -119,6 +119,12 @@ test('init installs task-fast plus implementation and fix proposal gates without
     assert.match(taskFast, /Fast path for obvious small changes or fixes/);
     assert.match(taskFast, /User invocation of task-fast is authorization to execute directly/);
     assert.match(taskFast, /recommend task-explore for changed behavior or bug-explore for a non-obvious defect/);
+    assert.match(taskFast, /Retain the resulting absolute canonical directory as `workflowStateRoot`/);
+    assert.match(taskFast, /Never use a relative `\.ai\/\.\.\.` path/);
+    assert.match(taskFast, /<workflowStateRoot>\/\.ai\/decisions\/decisions\.md/);
+    assert.match(taskFast, /<workflowStateRoot>\/\.ai\/tasks\/active\/YYYY-MM-DD-task-name\.md/);
+    assert.match(taskFast, /<workflowStateRoot>\/\.ai\/tasks\/archive\/YYYY-MM-DD-task-name\.md/);
+    assert.equal(taskFast.includes('inspect .ai/decisions/decisions.md'), false);
     assert.equal(existsSync(path.join(skillsDirectory, 'task-plan', 'SKILL.md')), false);
     assert.equal(existsSync(path.join(skillsDirectory, 'bug-plan', 'SKILL.md')), false);
 

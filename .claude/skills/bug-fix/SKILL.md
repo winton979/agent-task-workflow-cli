@@ -18,11 +18,13 @@ Before reading or writing any .ai path, determine the workflow state root. Manag
 
 Without context_repository, the launch root remains the workflow state root and its workspace manifest is the repository map.
 
+Retain the resulting absolute canonical directory as `workflowStateRoot`. Every .ai read, write, move, or delete must use an absolute path below `<workflowStateRoot>/.ai`. Never use a relative `.ai/...` path, infer the state root from the current command directory, or choose an existing .ai directory in a nested or registered repository.
+
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Treat repositories whose resolved disabled flag is true as unavailable for routine development in the current cycle. Do not select, inspect, index, or include them in a working set unless the user explicitly asks about that repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
 * For work that crosses repositories, record the selected repository IDs and paths in Context or working_set metadata. A working set remains a starting scope, not a hard boundary.
-* Run commands from the relevant repository directory. Do not assume a workflow-state-root Git diff represents changes in registered repositories.
+* Run commands from the relevant repository directory. Changing the command directory never changes `workflowStateRoot`. Do not assume a workflow-state-root Git diff represents changes in registered repositories.
 * A repository manifest describes local checkout locations. Current repository evidence remains authoritative for behavior and implementation decisions.
 
 Rules
@@ -48,7 +50,7 @@ Before planning or changing code, determine whether the selected brief remains e
 
 Current Decision Check
 
-Before planning or changing code, inspect .ai/decisions/decisions.md when it contains real entries:
+Before planning or changing code, inspect `<workflowStateRoot>/.ai/decisions/decisions.md` when it contains real entries:
 
 * revalidate every decision identifier named in brief metadata
 * extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
