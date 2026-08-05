@@ -6,22 +6,21 @@ A lightweight workflow for AI-assisted development. It separates requirement exp
 
 > Explore decides whether complexity is justified. Implement delivers the least complex acceptable solution.
 
-## When It Fits
+## Install
 
-Use task-cli with Claude Code or Codex CLI when a mature codebase has frequent bug fixes and small-to-medium feature work. It keeps enough structure to clarify scope, validate outcomes, and retain durable decisions without maintaining large specifications.
-
-It is less suitable for initiatives that require formal cross-team design approval, long-lived specification traceability, or coordination across independent developer workspaces. A single local workflow can cover a system split across related Git repositories.
-
-## Install From npm
-
-[`@winton979/task-cli`](https://www.npmjs.com/package/@winton979/task-cli) requires Node.js 18 or later. The npm package page renders this README, including the multi-repository workspace workflow below.
+Requires Node.js 18 or later.
 
 ```bash
+# npm
 npm install -g @winton979/task-cli
+
+# volta
+volta install @winton979/task-cli
+
 task init
 ```
 
-`task init` creates the `.ai/` workspace and installs managed skills into `.claude/skills/` and `.codex/skills/`. No companion interviewing skill is required.
+`task init` creates the `.ai/` workspace and installs managed skills into `.claude/skills/` and `.codex/skills/`.
 
 ```text
 .ai/
@@ -30,19 +29,36 @@ task init
 └── decisions/decisions.md
 ```
 
-### Upgrade an Existing Install
+## Workflows
+
+In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`.
+
+| Need | Flow |
+| --- | --- |
+| Understand the project | `project-explore` |
+| Obvious small change | `task-fast` |
+| New or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
+| Bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
+| Abandon an attempt | `task-cancel` or `bug-cancel` |
+
+`task-explore` and `bug-explore` use the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency.
+
+## Commands
 
 ```bash
-npm install -g @winton979/task-cli@latest
-task doctor
-task refresh
+task init        # create workspace and install managed skills
+task add-repo    # add a Git repository and enable workspace mode
+task use-context # store workflow state in a registered Git repository
+task bind-repo   # override a repository path for the current machine
+task repos       # list configured workspace repositories
+task refresh     # reinstall managed skills without changing .ai content
+task doctor      # check workspace state, skill versions, and gitignore rules
+task --help
 ```
 
-`task refresh` updates only task-cli-managed skills. It preserves tasks, bugs, decisions, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
+## Multi-Repository Workspaces
 
-### Multi-Repository Workspaces
-
-For a full-stack system split across repositories, initialize task-cli in the directory you will use as the shared agent workflow root. The existing `.ai/` directory keeps task, bug, and decision records there; configured repositories remain independent Git worktrees.
+Initialize task-cli in the directory you will use as the shared workflow root.
 
 ```bash
 task init
@@ -53,194 +69,18 @@ task enable-repo frontend --local
 task repos
 ```
 
-The first `task add-repo` creates `workspace.yaml` and refreshes task-cli-managed skills so the agent can use the repository map immediately. When the workflow root is itself a Git repository, it is registered automatically as `.` before the requested repository is added.
+The first `task add-repo` creates `workspace.yaml`. Use `task bind-repo` for per-developer path overrides (written to ignored `workspace.local.yaml`). Use `task use-context` to store workflow state in a registered Git repository when the launch root differs from the business repository.
 
-```json
-{
-  "version": 1,
-  "repositories": [
-    { "id": "backend", "path": "." },
-    { "id": "frontend", "path": "../frontend", "description": "Web application" }
-  ]
-}
-```
-
-`workspace.yaml` uses JSON syntax, which is a YAML-compatible subset, so it stays dependency-free and can be safely versioned with the workflow root. Repository paths are relative to that root; keep related checkouts in a portable layout. `task init` alone does not create this file, so existing single-project workflows remain unchanged.
-
-Set `"disabled": true` on a repository that is intentionally out of scope for the current development cycle. Managed skills skip disabled repositories during routine exploration and indexing, and `task doctor` does not require their paths to exist. An explicit user request for that repository still takes precedence.
-
-When an individual developer keeps repositories in a different layout, run `task bind-repo <id> <path>`. It writes an ignored `workspace.local.yaml` that maps repository IDs to local paths. A local path may be absolute or relative to the workflow root and overrides the shared default only on that machine.
-
-For a workflow initialized by an earlier task-cli version, run `task refresh` before the first binding so its `.gitignore` excludes the local file. `task bind-repo` refuses to write a local config that Git would track; remove any later `!workspace.local.yaml` rule first. If the file was already tracked, remove it from Git's index before binding.
-
-```json
-{
-  "version": 1,
-  "repositories": {
-    "frontend": "D:/work/acme/web-client"
-  }
-}
-```
-
-`task repos` and `task doctor` use the resolved paths. `task bind-repo` requires the path to be a Git repository root and rejects binding the same repository to more than one ID. `task doctor` reports missing, non-Git, duplicate, or non-root paths.
-
-`workspace.local.yaml` may also override a repository's disabled state. Existing string path entries remain valid; use an object when setting either local option:
-
-```json
-{
-  "version": 1,
-  "repositories": {
-    "frontend": { "path": "D:/work/acme/web-client", "disabled": true }
-  }
-}
-```
-
-A local `disabled: false` re-enables a repository disabled in the shared manifest.
-
-Use `task disable-repo <id>` and `task enable-repo <id>` to change the shared manifest. Add `--local` to change only the ignored local override, which is useful for a developer-specific cycle. `task repos` displays `[enabled]` or `[disabled]` for every resolved repository.
-
-The manifest is a context map, not an instruction to load every repository. Agents first identify the repositories relevant to the request, then record cross-repository working sets with repository-prefixed paths such as `frontend/src/auth`.
-
-### Browser Launch Roots and Shared Context
-
-When a browser-hosted agent can start only from an outer workspace directory, keep task-cli-managed skills at that launch root and select a registered Git repository as the shared workflow context:
+## Upgrade
 
 ```bash
-task init
-task add-repo otb-agent-context --id otb-agent-context
-task use-context otb-agent-context
-```
-
-`task use-context` adds `context_repository` to the launch-root `workspace.yaml`, verifies that the selected registration resolves to a Git root, and creates the standard `.ai/` state there when needed. It also refreshes the root-managed skills so they resolve workflow state through the context.
-
-```json
-{
-  "version": 1,
-  "context_repository": "otb-agent-context",
-  "repositories": [
-    { "id": "workspace", "path": "." },
-    { "id": "otb-agent-context", "path": "otb-agent-context" }
-  ]
-}
-```
-
-The context repository's own `workspace.yaml` is the authoritative map of the business repositories. Managed skills remain under the launch root's `.claude/skills` and `.codex/skills`, while all `.ai` task, bug, and decision records are read and written in the context repository. Existing launch-root `.ai` content is never copied, moved, or deleted automatically. An unavailable or invalid configured context is an error; task-cli does not fall back to launch-root `.ai` state.
-
-## Choose a Workflow
-
-In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`.
-
-| Need | Flow | Result |
-| --- | --- | --- |
-| Understand the existing project | `project-explore` | Read-only, evidence-based explanation; no artifacts or changes. |
-| Obvious small change or fix | `task-fast` | Create a concise execution brief, implement directly, validate, and archive in one flow. |
-| New or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` | A concise, implementation-agnostic task brief followed by validated work. Straightforward changes execute directly; material implementation choices use an in-conversation proposal gate. |
-| Bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` | Evidence, a root-cause-focused fix brief followed by direct fixing or, when needed, an in-conversation fix strategy gate. |
-| Abandon an active attempt | `task-cancel` or `bug-cancel` | Leave the attempt without treating it as completed work. |
-
-### Explore Before Implementing
-
-Exploration keeps repository facts and user decisions separate: inspect discoverable facts, then ask one material user-owned decision at a time. It records complexity as a constraint or risk, not an implementation design. Before producing a brief, it stops when the contract is executable, relevant decisions are consistent, and remaining uncertainty is either recorded as a risk or does not block work.
-
-### Grilling Produces the Brief
-
-The `grilling` (Grill Me) protocol is the quality gate for a high-quality brief: it drives the conversation to shared understanding before the agent acts. Task CLI embeds the primitive from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency.
-
-`task-explore` and `bug-explore` preserve the protocol: investigate discoverable facts, put material decisions to the user one at a time, and wait for confirmation before acting. In task-cli, acting means creating the brief. No companion interviewing skill is required or installed.
-
-`task-fast` is an explicit low-ceremony path for obvious, localized, low-risk changes or fixes. It still creates and archives a concise task brief, but user invocation authorizes direct implementation when the outcome is clear and existing project conventions determine the approach. If investigation finds material uncertainty, `task-fast` stops and routes changed behavior to `task-explore` or non-obvious defects to `bug-explore`.
-
-For a task requirement, `task-explore` produces `TASK_READY` only when its brief could support a fresh implementation session. This is a readiness check, not a requirement to start a new session. The brief normally stays within 500 words; it may reach 1000 only when needed to preserve execution-critical scope, constraints, risks, or acceptance criteria. Split work that cannot remain coherent within that limit.
-
-`task-implement` rechecks repository facts and relevant current decisions. Current code, tests, configuration, and direct observations describe current behavior; a brief records the confirmed desired contract, while an archive is historical context. A difference between current behavior and the brief's Goal is normally the work to implement, not a contradiction. It follows existing conventions for local, reversible choices, asks about unresolved material decisions, and returns material changes to goal, scope, or acceptance criteria to exploration. When several active briefs could match, identify the intended one rather than relying on recency.
-
-### Decision Gates
-
-`task-implement` and `bug-fix` default to direct execution. They stop for confirmation only when an unresolved decision can materially change system behavior, architecture or boundaries, compatibility, long-term maintenance, or risk profile. Routine local details stay owned by the agent.
-
-When a task implementation has multiple reasonable approaches, affects boundaries, introduces a durable design decision, or requires material assumptions, `task-implement` presents an `Implementation Proposal`: the agent's recommended modification report, not a request for the user to design the implementation. When bug evidence or correction strategy is materially uncertain, `bug-fix` presents a `Fix Strategy Proposal`: the agent's recommended fix report, not a request for routine repair choices. These proposals are conversation-level gates, not `.ai/` artifacts and not separate skills.
-
-New briefs use YAML frontmatter whenever evidence establishes an `area`, relevant active `decision`, or an evidence-based `working_set`; fields without a value are omitted rather than written as empty placeholders. In a multi-repository workspace, a cross-repository working set lists repository-ID-prefixed paths, such as `frontend/src/auth`; older unprefixed metadata remains valid. These fields help choose context; they never make a repository snapshot authoritative or turn the working set into a hard boundary. Frontmatter may be omitted only when none of those values is established; older briefs without frontmatter remain valid. Confirmed narrow clarifications are recorded under `Revisions`; material contract changes return to exploration.
-
-When the requirement indicates it, exploration records concrete compatibility, migration, data, security, performance, concurrency, release, or operational risks. It does not require an empty checklist for every small task.
-
-### Audit When Risk Justifies It
-
-Use `task-audit` or `bug-audit` before a PR, after a large diff, for public APIs or core modules, production fixes, security or data-integrity work, or when explicitly requested. A task audit first scans the final code and diff before reading the brief, then checks requirement coverage. The strongest audit uses a fresh session or reviewer context with the brief, final diff or code, and relevant tests.
-
-## Commands and Skills
-
-```bash
-task init       # create the workspace and install managed skills
-task add-repo   # add a Git repository and enable workspace mode
-task use-context # store workflow state in a registered Git repository
-task bind-repo  # override a repository path for the current machine
-task repos      # list configured workspace repositories
-task refresh    # reinstall managed skills without changing .ai content
-task doctor     # check workspace state, skill versions, and gitignore rules
-task --help
-```
-
-| Area | Skills |
-| --- | --- |
-| Project understanding | `project-explore` |
-| Tasks | `task-fast`, `task-explore`, `task-implement`, `task-audit`, `task-cancel` |
-| Bugs | `bug-explore`, `bug-fix`, `bug-audit`, `bug-cancel` |
-| Decision memory | `decision-log`, `decision-sweep-weekly`, `decision-curate` |
-
-## Keep the Workspace Useful
-
-### Decision Memory
-
-`.ai/decisions/decisions.md` stores stable project invariants and reusable constraints, not a transcript of local implementation choices, bug lessons, or routine engineering reminders. Current code and tests describe behavior; active decisions explain durable constraints that future work could otherwise choose incorrectly. The default is to skip logging unless omitting a decision would make a later exploration materially more likely to choose incorrectly.
-
-Decision growth should be non-linear with task and bug volume. Repeated incidents may reveal one underlying constraint, or none; they should usually become tests, lint rules, code simplification, or archive context rather than new active decisions. A weekly sweep with zero new entries is a healthy outcome.
-
-Use a concrete future-choice test: if an entry would not change a future implementation, exploration, compatibility, or boundary choice, skip it or remove it during curation. Do not keep entries only because they may be useful someday.
-
-| Action | Use it for |
-| --- | --- |
-| `decision-log` | Record an approved stable constraint. |
-| `decision-sweep-weekly` | Review the previous seven days of archived briefs, group repeated incidents, draft only durable constraints, and wait for confirmation. |
-| `decision-curate` | Assertively remove, merge, or tighten entries that no longer need to be active, then wait for confirmation before changing the log. |
-
-New entries use a stable `DEC-YYYYMMDD-descriptive-slug` heading and concise lifecycle metadata:
-
-```md
-## DEC-20260716-token-storage
-
-Status: active
-Scope: auth, api
-Applies when: all supported configurations
-Supersedes: -
-Superseded by: -
-```
-
-`active` entries constrain new work. `superseded` and `deprecated` entries are history unless a task explicitly needs them. When a later task replaces a durable conclusion, the new active entry names its predecessor and the prior entry records its successor, but only after explicit user confirmation. If overlapping active decisions conflict, the agent surfaces the conflict instead of choosing one. Legacy date-based entries remain valid and are not bulk-migrated.
-
-### Operating Limits
-
-Keep `active/` personal, local, and small. The scaling concern is high-signal context, not total archived work.
-
-| Signal | Working range | Response when exceeded |
-| --- | --- | --- |
-| Active briefs per developer | 1-3; 4-5 increases context-switching cost | Finish, cancel, or split active work. |
-| Archive size | Hundreds are acceptable | Normal flows do not reread the archive. |
-| Active decisions | 15-30 entries | Run `decision-curate` regularly after 30. |
-| Completed briefs per week | 10-20 is light | At 20-40, expect more review to separate durable constraints from one-off noise. |
-
-Repeatedly filtering stale decisions, archiving tiny repetitive briefs, producing mostly skipped weekly-sweep candidates, or carrying too many active briefs are signs to reduce decision noise or brief granularity rather than add process.
-
-## Refresh an Existing Project
-
-```bash
+npm install -g @winton979/task-cli@latest   # or: volta install @winton979/task-cli
 task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills. When a context repository is selected, it refreshes root-managed skills and ensures workflow state in that context instead of creating new root `.ai` state. It removes only task-cli-managed skills, including legacy `task-review` and `bug-review`, then reinstalls the skills listed above. Run `task doctor` first to see whether a refresh is needed.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
 
 ## License
 
 MIT
-
