@@ -43,6 +43,12 @@ task init
 
 `task-explore` 与 `bug-explore` 采用 `grilling`（Grill Me）协议作为以决策驱动探索的方法论基础，该原语内置自 [Matt Pocock 的 skills collection](https://github.com/mattpocock/skills.git)，但不作为运行时依赖。
 
+## 决策沉淀
+
+任务和缺陷归档保存工作历史；代码、测试、工具、配置和项目文档保存工程知识。`decisions.md` 刻意保持精简：只记录会改变某个具体未来选择、且无法从这些工程制品中无歧义得出的长期约束。
+
+对于已确认的约束，使用 `decision-log`。`decision-sweep-weekly` 是按需触发的策展与清理，不是每周例行事务，也不要求产出新的 Decision；没有新增记录同样是成功结果。
+
 ## 命令
 
 ```bash

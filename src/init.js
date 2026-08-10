@@ -1087,7 +1087,7 @@ user-invocable: true
 
 Purpose
 
-Record approved stable project constraints. Do not record bug lessons, personal learning, or per-task implementation history.
+Record approved stable project constraints. This is not a project knowledge base: task and bug archives retain work history, while code, tests, tooling, configuration, and project documentation retain engineering knowledge. Do not record bug lessons, personal learning, or per-task implementation history.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
@@ -1104,6 +1104,8 @@ Selection Standard
 Bias toward not writing. A decision belongs here only when it is a stable constraint and leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path. Potential usefulness, historical interest, or "might help someday" is insufficient.
 
 Future-choice test: before drafting, name the specific future implementation, exploration, compatibility, or boundary choice this entry would change. If no concrete future choice can be named, skip the entry.
+
+Artifact test: before drafting, check whether current code, tests, tooling, configuration, or project documentation already makes the constraint unambiguous. If it does, skip the decision; add one only for a non-obvious durable rationale or a constraint those artifacts cannot preserve.
 
 Bug count, task count, or review pain is not a selection criterion. A bug may be evidence for a decision, but the bug lesson itself is not the decision. Repeated bugs should usually produce tests, lint rules, code simplification, or one consolidated constraint; they must not produce entries proportional to incident count.
 
@@ -1182,26 +1184,26 @@ Requirements
 
   'decision-sweep-weekly': {
     name: 'decision-sweep-weekly',
-    description: 'Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.',
+    description: 'On-demand curation of recent task and bug briefs to propose only durable decision entries.',
     content: `---
 name: decision-sweep-weekly
-description: Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.
+description: On-demand curation of recent task and bug briefs to propose only durable decision entries.
 user-invocable: true
 ---
 
 Purpose
 
-Batch-review the past week of work and sediment only stable constraints that outlive a single task. Replaces per-task reminders and bug lessons with one weekly pass that should usually skip most briefs. A sweep that proposes no new decisions is a valid successful outcome.
+Review a bounded recent period and sediment only stable constraints that outlive a single task. This is a curation pass, not a recurring production target: task and bug volume must not create a decision obligation. A sweep that proposes no new decisions is a valid successful outcome.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
 When to Run
 
-Run once per week, ideally on Friday. May also run ad-hoc after a busy stretch.
+Run only when the user explicitly requests a curation pass, such as after a busy stretch, while reviewing decision-log quality, or before revisiting a known trade-off. It is not a scheduled weekly requirement and must not be run merely to produce decisions.
 
 Workflow
 
-1. Scan briefs created in the last 7 days under .ai/tasks/archive/ and .ai/bugs/archive/. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
+1. Scan the user-requested time range under .ai/tasks/archive/ and .ai/bugs/archive/. When no range is specified, default to the last 7 days. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Group related briefs by the underlying constraint or trade-off before drafting. Repeated symptoms are evidence, not separate decisions.
 4. Evaluate each brief or group against the Sediment Conditions below.
@@ -1269,6 +1271,7 @@ Requirements
 * Default to appending new active entries
 * Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
 * Decision growth must be non-linear with task and bug volume; many related briefs should collapse to one durable constraint or be skipped
+* The number of scanned briefs never implies a minimum draft count
 * Prefer zero drafts over weak drafts
 * When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
 * If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically
@@ -2098,7 +2101,7 @@ export function init(cwd, { fs, path, log }) {
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
-  sweep: decision-sweep-weekly`);
+  sweep: decision-sweep-weekly (on demand)`);
 }
 
 export function refresh(cwd, { fs, path, log }) {
@@ -2123,7 +2126,7 @@ export function refresh(cwd, { fs, path, log }) {
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
-  sweep: decision-sweep-weekly`);
+  sweep: decision-sweep-weekly (on demand)`);
 }
 
 export function doctor(cwd, { fs, path, log }) {

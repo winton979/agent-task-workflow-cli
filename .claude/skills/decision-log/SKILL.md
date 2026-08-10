@@ -6,7 +6,7 @@ user-invocable: true
 
 Purpose
 
-Record approved stable project constraints. Do not record bug lessons, personal learning, or per-task implementation history.
+Record approved stable project constraints. This is not a project knowledge base: task and bug archives retain work history, while code, tests, tooling, configuration, and project documentation retain engineering knowledge. Do not record bug lessons, personal learning, or per-task implementation history.
 
 Workspace Context
 
@@ -40,6 +40,8 @@ Selection Standard
 Bias toward not writing. A decision belongs here only when it is a stable constraint and leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path. Potential usefulness, historical interest, or "might help someday" is insufficient.
 
 Future-choice test: before drafting, name the specific future implementation, exploration, compatibility, or boundary choice this entry would change. If no concrete future choice can be named, skip the entry.
+
+Artifact test: before drafting, check whether current code, tests, tooling, configuration, or project documentation already makes the constraint unambiguous. If it does, skip the decision; add one only for a non-obvious durable rationale or a constraint those artifacts cannot preserve.
 
 Bug count, task count, or review pain is not a selection criterion. A bug may be evidence for a decision, but the bug lesson itself is not the decision. Repeated bugs should usually produce tests, lint rules, code simplification, or one consolidated constraint; they must not produce entries proportional to incident count.
 

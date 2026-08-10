@@ -43,6 +43,12 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 
 `task-explore` and `bug-explore` use the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency.
 
+## Decision Memory
+
+Task and bug archives preserve work history. Code, tests, tooling, configuration, and project documentation preserve engineering knowledge. `decisions.md` is intentionally smaller: record only a non-obvious durable constraint that changes a specific future choice and is not already unambiguous in those artifacts.
+
+Use `decision-log` for a confirmed constraint. `decision-sweep-weekly` is an on-demand curation pass, not a weekly ceremony or a requirement to produce decisions; a sweep that adds nothing is a successful result.
+
 ## Commands
 
 ```bash

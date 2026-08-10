@@ -1,12 +1,12 @@
 ---
 name: decision-sweep-weekly
-description: Weekly sweep of recent task and bug briefs to propose durable decision entries with lifecycle metadata.
+description: On-demand curation of recent task and bug briefs to propose only durable decision entries.
 user-invocable: true
 ---
 
 Purpose
 
-Batch-review the past week of work and sediment only stable constraints that outlive a single task. Replaces per-task reminders and bug lessons with one weekly pass that should usually skip most briefs. A sweep that proposes no new decisions is a valid successful outcome.
+Review a bounded recent period and sediment only stable constraints that outlive a single task. This is a curation pass, not a recurring production target: task and bug volume must not create a decision obligation. A sweep that proposes no new decisions is a valid successful outcome.
 
 Workspace Context
 
@@ -29,11 +29,11 @@ Retain the resulting absolute canonical directory as `workflowStateRoot`. Every 
 
 When to Run
 
-Run once per week, ideally on Friday. May also run ad-hoc after a busy stretch.
+Run only when the user explicitly requests a curation pass, such as after a busy stretch, while reviewing decision-log quality, or before revisiting a known trade-off. It is not a scheduled weekly requirement and must not be run merely to produce decisions.
 
 Workflow
 
-1. Scan briefs created in the last 7 days under .ai/tasks/archive/ and .ai/bugs/archive/. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
+1. Scan the user-requested time range under .ai/tasks/archive/ and .ai/bugs/archive/. When no range is specified, default to the last 7 days. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
 2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
 3. Group related briefs by the underlying constraint or trade-off before drafting. Repeated symptoms are evidence, not separate decisions.
 4. Evaluate each brief or group against the Sediment Conditions below.
@@ -101,6 +101,7 @@ Requirements
 * Default to appending new active entries
 * Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
 * Decision growth must be non-linear with task and bug volume; many related briefs should collapse to one durable constraint or be skipped
+* The number of scanned briefs never implies a minimum draft count
 * Prefer zero drafts over weak drafts
 * When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
 * If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically

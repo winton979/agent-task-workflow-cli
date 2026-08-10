@@ -83,13 +83,18 @@ test('init installs strict decision memory noise controls', (t) => {
     assert.match(decisionLog, /Record approved stable project constraints/);
     assert.match(decisionLog, /Bug count, task count, or review pain is not a selection criterion/);
     assert.match(decisionLog, /Future-choice test/);
+    assert.match(decisionLog, /Artifact test/);
+    assert.match(decisionLog, /project documentation already makes the constraint unambiguous/);
     assert.match(decisionLog, /common engineering practices already implied by the codebase, tests, or toolchain/);
     assert.match(decisionLog, /Do not create separate entries for repeated symptoms/);
     assert.match(decisionLog, /A zero-entry outcome is acceptable/);
 
     assert.match(decisionSweep, /A sweep that proposes no new decisions is a valid successful outcome/);
+    assert.match(decisionSweep, /It is not a scheduled weekly requirement/);
+    assert.match(decisionSweep, /When no range is specified, default to the last 7 days/);
     assert.match(decisionSweep, /Repeated symptoms are evidence, not separate decisions/);
     assert.match(decisionSweep, /Decision growth must be non-linear with task and bug volume/);
+    assert.match(decisionSweep, /The number of scanned briefs never implies a minimum draft count/);
     assert.match(decisionSweep, /Prefer zero drafts over weak drafts/);
     assert.match(decisionSweep, /Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint/);
 
