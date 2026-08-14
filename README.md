@@ -62,6 +62,27 @@ task doctor      # check workspace state, skill versions, and gitignore rules
 task --help
 ```
 
+## workscope
+
+`workscope` is a standalone workspace manifest tool shipped in the same package. It manages `workspace.yaml` and `workspace.local.yaml` only — it does not install skills, create `.ai/` state, or require `task init` to have been run.
+
+```bash
+workscope add-repo <path> [--id <id>] [--description <text>]
+workscope use-context <id>
+workscope bind-repo <id> <path>
+workscope enable-repo <id> [--local]
+workscope disable-repo <id> [--local]
+workscope focus <id> [<id>...] [--local]   # enable listed, disable all others
+workscope repos
+workscope --help
+```
+
+`workscope focus` is useful when working on a subset of repositories: it enables the listed IDs and disables everything else, in one command. If a `context_repository` is configured, it must be included in the focus list.
+
+The `--local` flag writes overrides to gitignored `workspace.local.yaml` instead of the shared `workspace.yaml`. workscope automatically adds `workspace.local.yaml` to `.gitignore` on first local write.
+
+On the first write command in a directory, workscope also generates a `WORKSPACE.md` declaration describing the workspace layout. Edit it to customize the project name or description. Read-only commands (`repos`, `--help`) skip this generation.
+
 ## Multi-Repository Workspaces
 
 Initialize task-cli in the directory you will use as the shared workflow root.

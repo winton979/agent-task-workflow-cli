@@ -1,18 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
+import { createCliLog, parseAddRepoOptions } from './cli-common.js';
 import { addRepo, bindRepo, doctor, init, listRepos, refresh, setRepoDisabled, useContext } from './init.js';
 
 const cwd = process.cwd();
 const cmd = process.argv[2];
 
-const log = {
-  info(msg) { console.log(msg); },
-  chalk: {
-    green(msg) { console.log(chalk.green(msg)); },
-    dim(msg) { console.log(chalk.dim(msg)); },
-  },
-};
+const log = createCliLog();
 
 function showHelp() {
   console.log(`\
@@ -41,27 +36,6 @@ Recommended flows after init:
   task: task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:  bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel`);
-}
-
-function parseAddRepoOptions(args) {
-  const options = {};
-
-  for (let index = 0; index < args.length; index += 1) {
-    const option = args[index];
-    if (option !== '--id' && option !== '--description') {
-      throw new Error(`Unknown option: ${option}`);
-    }
-
-    const value = args[index + 1];
-    if (!value || value.startsWith('--')) {
-      throw new Error(`${option} requires a value.`);
-    }
-
-    options[option.slice(2)] = value;
-    index += 1;
-  }
-
-  return options;
 }
 
 function parseRepositoryScope(args) {

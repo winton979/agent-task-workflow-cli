@@ -1,6 +1,6 @@
 {
   "name": "@winton979/task-cli",
-  "version": "1.9.7",
+  "version": "1.10.0",
   "description": "AI-assisted development workflow CLI for single and multi-repository projects",
   "keywords": [
     "ai",
@@ -21,7 +21,8 @@
   },
   "type": "module",
   "bin": {
-    "task": "bin/task.js"
+    "task": "bin/task.js",
+    "workscope": "bin/workscope.js"
   },
   "scripts": {
     "test": "node --test"

@@ -62,6 +62,27 @@ task doctor      # 检查工作区状态、技能版本和 gitignore 规则
 task --help
 ```
 
+## workscope
+
+`workscope` 是同一包内的独立工作区清单工具。它只管理 `workspace.yaml` 和 `workspace.local.yaml`，不安装技能、不创建 `.ai/` 状态目录，也不要求先运行 `task init`。
+
+```bash
+workscope add-repo <path> [--id <id>] [--description <text>]
+workscope use-context <id>
+workscope bind-repo <id> <path>
+workscope enable-repo <id> [--local]
+workscope disable-repo <id> [--local]
+workscope focus <id> [<id>...] [--local]   # 启用列出的仓库，禁用其余全部
+workscope repos
+workscope --help
+```
+
+`workscope focus` 适用于只关注部分仓库的场景：一条命令启用列出的 ID，禁用其他全部。若已配置 `context_repository`，必须将其包含在 focus 列表中。
+
+`--local` 标志将覆盖写入被忽略的 `workspace.local.yaml`，而非共享的 `workspace.yaml`。workscope 在首次本地写入时自动将 `workspace.local.yaml` 加入 `.gitignore`。
+
+在某目录首次执行写命令时,workscope 还会生成 `WORKSPACE.md` 声明文件,描述工作区布局。可手动编辑其中的项目名或描述。只读命令(`repos`、`--help`)不会触发生成。
+
 ## 多仓库工作区
 
 在用作共享工作流根目录的位置初始化 task-cli。
