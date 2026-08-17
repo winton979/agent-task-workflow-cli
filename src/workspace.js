@@ -151,11 +151,26 @@ The workspace is defined by:
 - \`workspace.yaml\` - shared repository definitions
 - \`workspace.local.yaml\` - local developer overrides (not committed)
 
-The effective workspace should be resolved through:
+## Repository resolution
 
-\`\`\`bash
-workscope repos
-\`\`\`
+Before selecting a repository or exploring source paths, resolve the
+effective workspace directly from these files:
+
+1. Read the repositories declared in \`workspace.yaml\`.
+2. If \`workspace.local.yaml\` exists, treat its \`repositories\` entries
+   as machine-specific overrides for matching repository IDs. A string
+   entry overrides the path; an object entry may override \`path\` and/or
+   \`disabled\`.
+3. For each field explicitly present in a local override, use the local
+   value; otherwise use the shared value. A missing effective \`disabled\`
+   value means the repository is enabled.
+4. Resolve a relative effective path from this workspace directory. Keep
+   an absolute effective path absolute.
+
+For routine development, select and explore only enabled repositories
+that are relevant to the task. Do not select, inspect, index, or include
+disabled repositories in a working set unless the user explicitly asks
+about one.
 `;
 }
 

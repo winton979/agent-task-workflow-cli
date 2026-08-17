@@ -107,7 +107,7 @@ test('init installs strict decision memory noise controls', (t) => {
   }
 });
 
-test('init installs task-fast plus implementation and fix proposal gates without plan skills', (t) => {
+test('init installs adaptive direct completion and frontier grilling without plan skills', (t) => {
   const project = createTemporaryDirectory(t);
   initializeGitRepository(project);
 
@@ -120,18 +120,36 @@ test('init installs task-fast plus implementation and fix proposal gates without
     const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
 
     const taskFast = readFileSync(path.join(skillsDirectory, 'task-fast', 'SKILL.md'), 'utf-8');
+    const taskExplore = readFileSync(path.join(skillsDirectory, 'task-explore', 'SKILL.md'), 'utf-8');
+    const bugExplore = readFileSync(path.join(skillsDirectory, 'bug-explore', 'SKILL.md'), 'utf-8');
 
-    assert.match(taskFast, /Fast path for obvious small changes or fixes/);
-    assert.match(taskFast, /User invocation of task-fast is authorization to execute directly/);
-    assert.match(taskFast, /recommend task-explore for changed behavior or bug-explore for a non-obvious defect/);
+    assert.match(taskFast, /Direct Completion Check/);
+    assert.match(taskFast, /A user's claim that work is simple is a lead, not sufficient evidence/);
+    assert.match(taskFast, /trivial, narrow patch, not merely a local or single-module implementation/);
+    assert.match(taskFast, /active decisions that clearly apply to the changed area/);
+    assert.match(taskFast, /Select exactly one escalation route/);
+    assert.match(taskFast, /do not create or update an artifact for the unselected route/);
+    assert.match(taskFast, /Do not create, update, or require a task, bug, or decision artifact/);
     assert.match(taskFast, /Retain the resulting absolute canonical directory as `workflowStateRoot`/);
     assert.match(taskFast, /Never use a relative `\.ai\/\.\.\.` path/);
     assert.match(taskFast, /<workflowStateRoot>\/\.ai\/decisions\/decisions\.md/);
     assert.match(taskFast, /<workflowStateRoot>\/\.ai\/tasks\/active\/YYYY-MM-DD-task-name\.md/);
-    assert.match(taskFast, /<workflowStateRoot>\/\.ai\/tasks\/archive\/YYYY-MM-DD-task-name\.md/);
+    assert.doesNotMatch(taskFast, /<workflowStateRoot>\/\.ai\/tasks\/archive\//);
     assert.equal(taskFast.includes('inspect .ai/decisions/decisions.md'), false);
     assert.equal(existsSync(path.join(skillsDirectory, 'task-plan', 'SKILL.md')), false);
     assert.equal(existsSync(path.join(skillsDirectory, 'bug-plan', 'SKILL.md')), false);
+
+    assert.match(taskExplore, /Complete trivial, unambiguous tasks directly/);
+    assert.match(taskExplore, /If Direct Completion qualifies, implement and validate it now, then output TASK_DONE/);
+    assert.match(taskExplore, /Full Task Exploration/);
+    assert.match(taskExplore, /Work the design tree in rounds/);
+    assert.match(taskExplore, /The frontier is every decision whose prerequisites are settled/);
+    assert.match(taskExplore, /Q1 - \*\*Question title\*\*/);
+
+    assert.match(bugExplore, /Fix a verified, local bug directly/);
+    assert.match(bugExplore, /If Direct Completion qualifies, fix and validate it now, then output BUG_DONE/);
+    assert.match(bugExplore, /Full Bug Exploration/);
+    assert.match(bugExplore, /for a reported defect, evidence identifies the faulty behavior and the local correction/);
 
     assert.match(taskImplement, /Default to Direct Execution/);
     assert.match(taskImplement, /Implementation Proposal/);
@@ -158,9 +176,23 @@ test('init installs task-fast plus implementation and fix proposal gates without
     assert.doesNotMatch(bugFix, /Plan Context/);
   }
 
+  for (const skillRoot of ['.claude', '.codex']) {
+    writeFileSync(
+      path.join(project, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
+      'Stale task-fast guidance.\n'
+    );
+  }
+
   const refreshResult = runTask(project, 'refresh');
   assert.equal(refreshResult.status, 0, output(refreshResult));
-  assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-fast', 'SKILL.md')), true);
+  for (const skillRoot of ['.claude', '.codex']) {
+    const refreshedTaskFast = readFileSync(
+      path.join(project, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
+      'utf-8'
+    );
+    assert.match(refreshedTaskFast, /Direct Completion Check/);
+    assert.match(refreshedTaskFast, /Automatic Escalation/);
+  }
   assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-plan', 'SKILL.md')), false);
   assert.equal(existsSync(path.join(project, '.claude', 'skills', 'bug-plan', 'SKILL.md')), false);
 
@@ -168,6 +200,18 @@ test('init installs task-fast plus implementation and fix proposal gates without
   assert.equal(helpResult.status, 0, output(helpResult));
   assert.match(output(helpResult), /fast: task-fast/);
   assert.doesNotMatch(output(helpResult), /task-plan|bug-plan/);
+});
+
+test('workflow documentation describes direct completion and automatic escalation', () => {
+  const english = readFileSync(path.join(projectRoot, 'README.md'), 'utf-8');
+  const chinese = readFileSync(path.join(projectRoot, 'README.zh-CN.md'), 'utf-8');
+
+  assert.match(english, /evidence-based direct-completion check/);
+  assert.match(english, /automatically continues with full task or bug exploration/);
+  assert.match(english, /independent frontier in rounds/);
+  assert.match(chinese, /基于证据的直接完成检查/);
+  assert.match(chinese, /自动进入完整的 task 或 bug 探索/);
+  assert.match(chinese, /当前所有互不依赖的问题/);
 });
 
 test('add-repo promotes an initialized Git project to a portable workspace', (t) => {

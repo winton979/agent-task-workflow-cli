@@ -59,13 +59,23 @@ Retain the resulting absolute canonical directory as \`workflowStateRoot\`. Ever
 
 const GRILLING_GUIDANCE = `Grilling
 
-Interview me relentlessly about every aspect of this until we reach a shared understanding. Walk down each branch of the decision tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+Interview the user relentlessly until you reach a shared understanding. Model the subject as a design tree: every decision branches into the decisions that depend on it.
 
-Ask the questions one at a time, waiting for feedback on each question before continuing. Asking multiple questions at once is bewildering.
+Work the design tree in rounds. The frontier is every decision whose prerequisites are settled: the questions that can be asked now without guessing at unanswered decisions. Ask the full frontier in one round, number each question, and give a recommended answer. Wait for the user's answers before the next round.
 
-If a *fact* can be found by exploring the environment (filesystem, tools, etc.), look it up rather than asking me. The *decisions*, though, are mine — put each one to me and wait for my answer.
+Format each question as:
 
-Do not act on it until I confirm we have reached a shared understanding.`;
+\`\`\`
+Q1 - **Question title**: Question body.
+
+Recommended: Recommended answer.
+\`\`\`
+
+Recompute the frontier after every round. A question that depends on another question still open in the current round belongs in a later round.
+
+Find facts in the repository and environment instead of asking the user. Keep questions downstream of pending fact-finding for a later round; ask the remaining independent frontier now. Decisions belong to the user: ask for them and wait.
+
+The session is complete only when the frontier is empty and the user confirms the understanding is shared. Do not act on the result before that confirmation.`;
 
 const DECISIONS_READ_GUIDANCE = `Decision Intake
 
@@ -141,6 +151,146 @@ Before planning or changing code, inspect \`<workflowStateRoot>/.ai/decisions/de
 * revalidate every decision identifier named in brief metadata
 * extract only active decisions whose Scope and Applies when fields materially constrain the current work; use legacy entries without metadata under the same narrow relevance test
 * if a referenced decision is inactive, missing, or contradicted by a newly relevant active decision, surface the conflict and do not choose a winner without user confirmation`;
+
+const DIRECT_COMPLETION_GUIDANCE = `Direct Completion Check
+
+Before grilling, creating an artifact, or changing code, make a bounded inspection of the relevant repository paths, conventions, tests, and active decisions that clearly apply to the changed area. A user's claim that work is simple is a lead, not sufficient evidence.
+
+Use Direct Completion only when all of these are true:
+
+* the requested or expected behavior is explicit and can be validated
+* repository evidence bounds the change to a trivial, narrow patch, not merely a local or single-module implementation
+* existing code and conventions determine the implementation approach
+* no unresolved decision affects behavior, scope, compatibility, security, data, architecture, or long-term maintenance
+* a focused validation can demonstrate the result
+* for a reported defect, evidence identifies the faulty behavior and the local correction
+
+For Direct Completion, apply the smallest correct change, run focused validation, and report the outcome in the current response. Reading a relevant existing decision does not require an artifact. Do not create, update, or require a task, bug, or decision artifact.`;
+
+const TASK_EXPLORATION_WORKFLOW_GUIDANCE = `Full Task Exploration
+
+Use this when Direct Completion does not qualify. Continue in the current invocation:
+
+1. Grill the requirement using the Grilling section below.
+2. Do not write code or create implementation details before shared understanding is confirmed.
+3. Before writing the brief, inspect \`<workflowStateRoot>/.ai/decisions/decisions.md\` if it exists and has entries. Pull in only decisions that materially constrain this task.
+4. Create a concise task brief at \`<workflowStateRoot>/.ai/tasks/active/YYYY-MM-DD-task-name.md\`.
+5. Show the saved brief and stop.
+
+${GRILLING_GUIDANCE}
+
+${DECISIONS_READ_GUIDANCE}
+
+${COMPLEXITY_ASSESSMENT_GUIDANCE}
+
+${MATERIAL_RISK_GUIDANCE}
+
+${BRIEF_READINESS_GUIDANCE}
+
+Task Brief Format
+
+${BRIEF_METADATA_GUIDANCE}
+
+# Goal
+
+What should be achieved.
+
+# Context
+
+Relevant project background.
+
+# Constraints
+
+Business or technical limitations.
+
+# Risks
+
+Potential pitfalls.
+
+# Acceptance Criteria
+
+Clear success conditions.
+
+Requirements
+
+* Aim for 500 words or fewer.
+* Extend to at most 1000 words only when required to preserve execution-critical scope, constraints, risks, or acceptance criteria.
+* If a coherent contract cannot fit within 1000 words, split the requirement and complete exploration for one independently executable task at a time.
+* No code or architecture design.
+* Include only information required for execution.
+
+When complete output:
+
+TASK_READY`;
+
+const BUG_EXPLORATION_WORKFLOW_GUIDANCE = `Full Bug Exploration
+
+Use this when Direct Completion does not qualify. Continue in the current invocation:
+
+1. Grill the bug using the Grilling section below.
+2. Investigate the bug and gather reproducible evidence. Do not write code or suggest fixes before enough evidence exists.
+3. Identify falsifiable root-cause hypotheses. Do not call a cause confirmed without evidence that distinguishes it from alternatives.
+4. Separate observed behavior, expected behavior, assumptions, and hypotheses.
+5. Before writing the brief, inspect \`<workflowStateRoot>/.ai/decisions/decisions.md\` if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
+6. Create a concise bug brief at \`<workflowStateRoot>/.ai/bugs/active/YYYY-MM-DD-bug-name.md\`.
+7. Show the saved brief and stop.
+
+${GRILLING_GUIDANCE}
+
+${DECISIONS_READ_GUIDANCE}
+
+Bug Brief Format
+
+${BRIEF_METADATA_GUIDANCE}
+
+# Problem
+
+Observed issue.
+
+# Expected Behavior
+
+Expected result.
+
+# Evidence
+
+Supporting observations, including what remains unknown.
+
+# Root Cause Hypotheses
+
+For each hypothesis, record supporting or contradicting evidence, Confidence (High / Medium / Low), and a discriminating check.
+
+# Confirmed Root Cause
+
+Include only when evidence distinguishes the cause from material alternatives. Otherwise state that no cause is confirmed.
+
+# Constraints
+
+Technical limitations.
+
+# Acceptance Criteria
+
+Conditions proving the bug is fixed.
+
+When sufficient evidence exists output:
+
+BUG_READY`;
+
+const TASK_FAST_ESCALATION_GUIDANCE = `Automatic Escalation
+
+When Direct Completion does not qualify, classify the request once:
+
+* a suspected incorrect behavior uses the Bug route
+* every other request uses the Task route
+
+Select exactly one escalation route. Apply only the selected route, and do not create or update an artifact for the unselected route.
+
+## Task route
+
+${TASK_EXPLORATION_WORKFLOW_GUIDANCE}
+
+## Bug route
+
+${BUG_EXPLORATION_WORKFLOW_GUIDANCE}`;
 
 const TASK_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
 const BUG_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
@@ -480,179 +630,49 @@ policy:
 
   'task-fast': {
     name: 'task-fast',
-    description: 'Fast path for obvious small changes or fixes. Create a concise execution brief, implement directly, verify, and archive automatically.',
+    description: 'Adaptively complete a small change or fix, or automatically enter full exploration when repository evidence shows it is not direct work.',
     content: `---
 name: task-fast
-description: Fast path for obvious small changes or fixes. Create a concise execution brief, implement directly, verify, and archive automatically.
+description: Adaptively complete a small change or fix, or automatically enter full exploration when repository evidence shows it is not direct work.
 user-invocable: true
 ---
 
 Purpose
 
-Handle an obvious small change or fix in one continuous workflow with minimal ceremony.
-
-Use this only when the intended outcome is clear, the likely change is localized, existing project conventions determine the approach, and no material user-owned decision is expected. User invocation of task-fast is authorization to execute directly under those conditions.
-
-If investigation shows the work is not obvious, not localized, or has material uncertainty around behavior, compatibility, data, security, architecture, or risk, stop and recommend task-explore for changed behavior or bug-explore for a non-obvious defect.
+Handle a requested change or fix in one invocation: complete verified direct work with minimal ceremony, or automatically enter the appropriate full exploration when it is not direct work.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
-Workflow
+${DIRECT_COMPLETION_GUIDANCE}
 
-1. Read the project code and conventions needed to avoid obvious conflicts.
-2. If a fact can be found by exploring the environment, look it up rather than asking the user.
-3. Ask only questions whose answers can materially change the implementation or acceptance criteria. Ask them one at a time, waiting for feedback on each before continuing. For each question, provide your recommended answer.
-4. Read \`<workflowStateRoot>/.ai/decisions/decisions.md\` if it exists and has entries. Pull in only decisions that materially constrain this work.
-5. Create a concise task brief and save it to:
+If Direct Completion qualifies, implement and validate it now, then output TASK_DONE. Do not create an artifact.
 
-\`<workflowStateRoot>/.ai/tasks/active/YYYY-MM-DD-task-name.md\`
+If it does not qualify, do not ask the user to choose another skill or rerun the request. Continue in this invocation with Automatic Escalation.
 
-6. Implement the smallest correct change immediately.
-7. If implementation needs a narrow confirmed clarification, record it under Revisions. If it materially changes the Goal, accepted scope, or Acceptance Criteria, stop and require task-explore or bug-explore.
-8. Verify the result against the acceptance criteria.
-9. Archive the brief automatically by moving it to:
-
-\`<workflowStateRoot>/.ai/tasks/archive/YYYY-MM-DD-task-name.md\`
-
-10. Summarize the outcome and any follow-up risks.
-
-${DECISIONS_READ_GUIDANCE}
-
-${COMPLEXITY_ASSESSMENT_GUIDANCE}
-
-${MATERIAL_RISK_GUIDANCE}
-
-${BRIEF_READINESS_GUIDANCE}
-
-${CURRENT_DECISION_CHECK_GUIDANCE}
-
-Task Brief Format
-
-${BRIEF_METADATA_GUIDANCE}
-
-# Goal
-
-What should be achieved.
-
-# Context
-
-Relevant project background. For an obvious small bug, include the observed failure and expected behavior briefly.
-
-# Constraints
-
-Business or technical limitations. When materially supported by the exploration, record complexity expectations such as:
-
-- A new dependency does not currently appear necessary.
-- Existing project boundaries likely remain sufficient.
-- Cross-cutting changes do not currently appear justified.
-
-# Risks
-
-Potential pitfalls.
-
-# Acceptance Criteria
-
-Clear success conditions.
-
-# Revisions
-
-Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
-
-Requirements
-
-* Maximum 350 words
-* No code
-* No architecture digression
-* Only information required for execution
-
-Output
-
-TASK_DONE
+${TASK_FAST_ESCALATION_GUIDANCE}
 `,
   },
 
   'task-explore': {
     name: 'task-explore',
-    description: 'Grill the user relentlessly about a requirement; generate an execution brief only after shared understanding, without implementing.',
+    description: 'Complete a verified trivial task directly, or grill and record a non-trivial requirement for later implementation.',
     content: `---
 name: task-explore
-description: Grill the user relentlessly about a requirement; generate an execution brief only after shared understanding, without implementing.
+description: Complete a verified trivial task directly, or grill and record a non-trivial requirement for later implementation.
 user-invocable: true
 ---
 
 Purpose
 
-Clarify requirements and leave behind a ready-to-execute brief.
+Complete trivial, unambiguous tasks directly. For work that needs a user decision or broader exploration, leave behind a ready-to-execute brief.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
-Workflow
+${DIRECT_COMPLETION_GUIDANCE}
 
-1. Grill the requirement using the Grilling section below.
-2. Do not write code or create implementation details.
-3. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain this task.
-4. For this workflow, "act on it" means creating the brief.
-5. Generate a concise task brief and save it to:
+If Direct Completion qualifies, implement and validate it now, then output TASK_DONE. Do not create an artifact.
 
-.ai/tasks/active/YYYY-MM-DD-task-name.md
-
-6. Show the saved brief and stop.
-
-${GRILLING_GUIDANCE}
-
-${DECISIONS_READ_GUIDANCE}
-
-${COMPLEXITY_ASSESSMENT_GUIDANCE}
-
-${MATERIAL_RISK_GUIDANCE}
-
-${BRIEF_READINESS_GUIDANCE}
-
-Task Brief Format
-
-${BRIEF_METADATA_GUIDANCE}
-
-# Goal
-
-What should be achieved.
-
-# Context
-
-Relevant project background.
-
-# Constraints
-
-Business or technical limitations. When materially supported by the exploration, record complexity expectations such as:
-
-- A new dependency does not currently appear necessary.
-- Existing project boundaries likely remain sufficient.
-- Cross-cutting changes do not currently appear justified.
-
-# Risks
-
-Potential pitfalls.
-
-# Acceptance Criteria
-
-Clear success conditions.
-
-# Revisions
-
-Add only for an explicitly confirmed narrow clarification. Record the date, exact change, and why it does not materially revise the contract.
-
-Requirements
-
-* Aim for 500 words or fewer
-* Extend to at most 1000 words only when required to preserve execution-critical scope, constraints, risks, or acceptance criteria
-* If a coherent contract cannot fit within 1000 words, split the requirement and complete exploration for one independently executable task at a time
-* No code
-* No architecture design
-* Stay implementation-agnostic; describe constraints, not solutions
-* Only information required for execution
-
-When complete output:
-
-TASK_READY
+${TASK_EXPLORATION_WORKFLOW_GUIDANCE}
 `,
   },
 
@@ -841,78 +861,24 @@ TASK_CANCELLED
 
   'bug-explore': {
     name: 'bug-explore',
-    description: 'Grill the user relentlessly about a bug while investigating its evidence; generate a fix brief only after shared understanding, without writing code.',
+    description: 'Fix a verified trivial bug directly, or investigate and record a non-trivial bug for later repair.',
     content: `---
 name: bug-explore
-description: Grill the user relentlessly about a bug while investigating its evidence; generate a fix brief only after shared understanding, without writing code.
+description: Fix a verified trivial bug directly, or investigate and record a non-trivial bug for later repair.
 user-invocable: true
 ---
 
 Purpose
 
-Investigate a bug and leave behind a ready-to-fix brief.
+Fix a verified, local bug directly. For a bug that needs broader evidence or a user decision, leave behind a ready-to-fix brief.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
-Rules
+${DIRECT_COMPLETION_GUIDANCE}
 
-1. Grill the bug using the Grilling section below.
-2. Investigate the bug and gather reproducible evidence. Do not write code or suggest fixes before enough evidence exists.
-3. Identify falsifiable root cause hypotheses. Do not call a cause confirmed without evidence that distinguishes it from alternatives.
-4. Separate:
+If Direct Completion qualifies, fix and validate it now, then output BUG_DONE. Do not create an artifact.
 
-   * observed behavior
-   * expected behavior
-   * assumptions
-   * hypotheses
-
-5. Before writing the brief, inspect .ai/decisions/decisions.md if it exists and has entries. Pull in only decisions that materially constrain the observed behavior, expected behavior, or likely root cause.
-6. For this workflow, "act on it" means creating the brief.
-7. Generate a brief and save it to:
-
-.ai/bugs/active/YYYY-MM-DD-bug-name.md
-
-8. Show the saved brief and stop.
-
-${GRILLING_GUIDANCE}
-
-${DECISIONS_READ_GUIDANCE}
-
-Bug Brief Format
-
-${BRIEF_METADATA_GUIDANCE}
-
-# Problem
-
-Observed issue.
-
-# Expected Behavior
-
-Expected result.
-
-# Evidence
-
-Supporting observations, including what remains unknown.
-
-# Root Cause Hypotheses
-
-For each hypothesis, record supporting or contradicting evidence, Confidence (High / Medium / Low), and a discriminating check.
-
-# Confirmed Root Cause
-
-Include only when evidence distinguishes the cause from material alternatives. Otherwise state that no cause is confirmed.
-
-# Constraints
-
-Technical limitations.
-
-# Acceptance Criteria
-
-Conditions proving the bug is fixed.
-
-When sufficient evidence exists output:
-
-BUG_READY
+${BUG_EXPLORATION_WORKFLOW_GUIDANCE}
 `,
   },
 

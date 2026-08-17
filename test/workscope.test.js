@@ -295,7 +295,13 @@ test('workscope write commands generate WORKSPACE.md on first run', (t) => {
   assert.match(readme, /agent workspace for the ROOT/);
   assert.match(readme, /workspace\.yaml/);
   assert.match(readme, /workspace\.local\.yaml/);
-  assert.match(readme, /workscope repos/);
+  assert.match(readme, /Before selecting a repository or exploring source paths/);
+  assert.match(readme, /machine-specific overrides/);
+  assert.match(readme, /A string\s+entry overrides the path/);
+  assert.match(readme, /missing effective \`disabled\`/);
+  assert.match(readme, /Resolve a relative effective path from this workspace directory/);
+  assert.match(readme, /Do not select, inspect, index, or include/);
+  assert.doesNotMatch(readme, /workscope repos/);
 });
 
 test('workscope skips WORKSPACE.md generation when it already exists', (t) => {
