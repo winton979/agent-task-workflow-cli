@@ -27,6 +27,7 @@ task init
 ├── tasks/active and tasks/archive
 ├── bugs/active and bugs/archive
 ├── efforts/active and efforts/archive
+├── specs
 └── decisions/decisions.md
 ```
 
@@ -39,6 +40,7 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 | Understand the project | `project-explore` |
 | Small, unambiguous change | `task-fast` |
 | Large or uncertain request | `effort-explore` |
+| Turn a ready Effort into reviewed Tasks | `effort-spec` -> `task-implement` |
 | Non-trivial new or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
 | Non-trivial bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
 | Abandon an attempt | `task-cancel` or `bug-cancel` |
@@ -47,7 +49,9 @@ Every task and bug entry starts with an evidence-based direct-completion check. 
 
 `task-explore` and `bug-explore` use the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency. Non-direct exploration maps decisions as a tree and asks the independent frontier in rounds, with a recommendation for each question.
 
-`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort. Ask to continue it, check its status, or close it; closing always requires confirmation and preserves the archived record. It does not create a Spec or Task automatically.
+`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort. Ask to continue it, check its status, close it, or explicitly reopen it; closure always requires confirmation and preserves the archived record.
+
+`effort-spec` turns a ready open Effort into a resumable Spec Proposal. After explicit Spec confirmation, it writes a version-controlled Spec Record in `.ai/specs/` and internally presents a Task Graph. A second confirmation creates all generated Task Briefs together. Generated Tasks retain source-condition traceability, true dependency gates, and completion evidence; existing Task and Bug flows remain unchanged.
 
 ## Decision Memory
 
@@ -112,7 +116,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/specs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
 
 ## License
 

@@ -27,6 +27,7 @@ task init
 ├── tasks/active 和 tasks/archive
 ├── bugs/active 和 bugs/archive
 ├── efforts/active 和 efforts/archive
+├── specs
 └── decisions/decisions.md
 ```
 
@@ -39,6 +40,7 @@ task init
 | 理解项目 | `project-explore` |
 | 小且无歧义的改动 | `task-fast` |
 | 大型或不确定的请求 | `effort-explore` |
+| 将 ready Effort 转为经审查的任务 | `effort-spec` -> `task-implement` |
 | 非简单的新增或修改行为 | `task-explore` -> `task-implement` -> 可选 `task-audit` |
 | 非简单的缺陷修复 | `bug-explore` -> `bug-fix` -> 可选 `bug-audit` |
 | 放弃尝试 | `task-cancel` 或 `bug-cancel` |
@@ -47,7 +49,9 @@ task init
 
 `task-explore` 与 `bug-explore` 采用 `grilling`（Grill Me）协议作为以决策驱动探索的方法论基础，该原语内置自 [Matt Pocock 的 skills collection](https://github.com/mattpocock/skills.git)，但不作为运行时依赖。非直接完成的探索会将决策组织为树，并按轮次提出当前所有互不依赖的问题，同时给出每题建议。
 
-`effort-explore` 用自然语言管理大型或不确定的请求。它将未决决策和当前 frontier 记录在一个可恢复的 Effort 中；可以要求继续、查询状态或关闭。关闭总是需要确认，并会保留归档记录；它不会自动创建 Spec 或 Task。
+`effort-explore` 用自然语言管理大型或不确定的请求。它将未决决策和当前 frontier 记录在一个可恢复的 Effort 中；可以要求继续、查询状态、关闭或显式重新打开。关闭总是需要确认，并会保留归档记录。
+
+`effort-spec` 将 ready 且 open 的 Effort 转为可恢复的 Spec Proposal。用户显式确认 Spec 后，它会在 `.ai/specs/` 写入受版本控制的 Spec Record，并在内部展示任务图；第二次确认才会一次性创建全部生成型 Task Brief。生成型 Task 保留来源条件追溯、真实依赖门禁和完成证据；既有 Task 与 Bug 流程保持不变。
 
 ## 决策沉淀
 
@@ -112,7 +116,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/efforts`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。
+`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/efforts`、`.ai/specs`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。
 
 ## 许可证
 

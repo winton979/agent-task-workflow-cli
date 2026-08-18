@@ -26,6 +26,7 @@ const {
   BUG_ARCHIVE_DIR,
   EFFORT_ACTIVE_DIR,
   EFFORT_ARCHIVE_DIR,
+  SPECS_DIR,
   DECISIONS_FILE,
   WORKSPACE_FILE,
   WORKSPACE_LOCAL_FILE,
@@ -297,7 +298,7 @@ ${BUG_EXPLORATION_WORKFLOW_GUIDANCE}`;
 
 const EFFORT_EXPLORATION_GUIDANCE = `Purpose
 
-Manage a durable Effort for a large or uncertain request through natural-language conversation. An Effort holds unresolved material decisions; it is not a Task and does not implement code, create a Spec, or decompose Tasks.
+Manage a durable Effort for a large or uncertain request through natural-language conversation. An Effort holds unresolved material decisions; it is not a Task and does not implement code. A ready Effort can be handed to effort-spec, but effort-explore does not create a Spec Record or decompose Tasks itself.
 
 ${WORKSPACE_CONTEXT_GUIDANCE}
 
@@ -331,6 +332,8 @@ state: open
 
 # Session History
 
+# Spec Proposal
+
 # Closure
 \`\`\`
 
@@ -338,7 +341,7 @@ The only persisted lifecycle marker is \`state: open\` or \`state: closed\`. Do 
 
 Natural-Language Workflow
 
-Interpret the user's natural-language request as one of: create an Effort, continue or update an Effort, report its status, or close it.
+Interpret the user's natural-language request as one of: create an Effort, continue or update an Effort, report its status, close it, or reopen it.
 
 1. For a new Effort, establish its Destination and record only confirmed context, decisions, constraints, current frontier, unknowns, and scope boundaries. Use the Grilling protocol for material user decisions. Do not treat a hypothesis or an exploration finding as a Confirmed Decision.
 2. For every request about an existing Effort, use a user-specified name or path. Without one, proceed only when exactly one open record is an unambiguous match. When there are multiple plausible Efforts, list the candidates and ask the user to select one; never choose by recency.
@@ -346,23 +349,120 @@ Interpret the user's natural-language request as one of: create an Effort, conti
    * ready when no material current frontier or open unknown remains
    * blocked when every current frontier item is an external prerequisite the agent cannot advance
    * exploring otherwise
-   These are natural-language conclusions, not persisted states. Leaving the conversation pauses an open Effort without changing its record.
-4. When the user clearly asks to close an Effort, ask for a closure reason when the request does not provide one. First state that the record will be marked \`state: closed\`, record the closure reason under \`# Closure\`, and move to the archive. Wait for explicit confirmation before changing or moving it. After confirmation, make those changes and report the archived path and closure reason. Do not delete code, Task artifacts, Bug artifacts, or unrelated user changes.
+   When the Effort has a confirmed Spec Record, also report its revision, any pending Spec Proposal, and generated active Tasks grouped as ready, dependency-blocked, or requiring resolution by the latest Task Graph. These are natural-language conclusions, not persisted states. Leaving the conversation pauses an open Effort without changing its record.
+4. When the user clearly asks to close an Effort, ask for a closure reason when the request does not provide one. If linked generated Tasks remain active, list them before the confirmation request. First state that the record will be marked \`state: closed\`, record the closure reason under \`# Closure\`, and move to the archive. Wait for explicit confirmation before changing or moving it. After confirmation, make those changes and report the archived path and closure reason. Do not delete code, Task artifacts, Bug artifacts, or unrelated user changes.
+5. When the user clearly asks to reopen a closed Effort, use a named or uniquely matching archived record. State that it will return to \`state: open\`, ask for a reopening reason when absent, and wait for explicit confirmation. After confirmation, move it to the active directory, record the reopening reason in Session History, and continue from its current context. Never reopen automatically.
 
 Rules
 
 * Read \`.ai/decisions/decisions.md\` when relevant active decisions may constrain the Effort. Preserve them as context; do not duplicate them as new durable decisions.
 * Maintain the Current Frontier as the independent material questions or external prerequisites that can be acted on next. Keep dependent questions out of the frontier until their prerequisites are settled.
-* A ready Effort may be handed to a future Spec workflow, but Phase 1 must not create a Spec or Task Brief automatically.
+* A ready Effort may be handed to effort-spec, but this Skill must not create a Spec Record or Task Brief automatically.
 * Keep Session History concise: retain decisions, scope changes, and externally relevant facts rather than a transcript of every conversation.
 * Do not modify existing Task or Bug records unless the user explicitly invoked their separate workflow.
 
 Output
 
-For status or continuation, answer directly with the relevant Effort context and the next frontier. For a new or updated record, show the saved path and a concise summary. For closure, output only the archive confirmation request until the user confirms; after confirmation, report the archived path and closure reason.`;
+For status or continuation, answer directly with the relevant Effort context and the next frontier. For a new or updated record, show the saved path and a concise summary. For closure or reopening, output only the confirmation request until the user confirms; after confirmation, report the resulting path and reason.`;
+
+const EFFORT_SPEC_GUIDANCE = `Purpose
+
+Turn a ready Effort into one confirmed, version-controlled Spec Record and, after explicit review, a complete Task Graph. Decomposition is an internal phase of this Skill; do not expose or require another Skill for it. This Skill never implements code, stages files, or creates Git commits.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Locations
+
+Resolve every path from workflowStateRoot:
+
+* open Efforts: <workflowStateRoot>/.ai/efforts/active/
+* closed Efforts: <workflowStateRoot>/.ai/efforts/archive/
+* confirmed Spec Records: <workflowStateRoot>/.ai/specs/
+* generated Task Briefs: <workflowStateRoot>/.ai/tasks/active/ and <workflowStateRoot>/.ai/tasks/archive/
+
+Selection and Entry
+
+1. Select only a ready, open Effort. Use a user-specified name or path when provided. Without one, continue only when exactly one open Effort is an unambiguous match; otherwise list candidates and ask the user to choose. Never select by recency.
+2. A closed Effort must be explicitly reopened through effort-explore before this Skill can create or revise its Spec.
+3. An Effort has at most one Spec Record. A materially different Destination requires a new Effort rather than a parallel Spec.
+4. Read the selected Effort, its linked Spec Record when present, relevant active decisions, and existing generated Task Briefs before proposing a change. Preserve existing Task and Bug artifacts.
+
+Spec Proposal and Spec Record
+
+1. For a ready Effort without a Spec Record, derive a Spec Proposal and retain it under # Spec Proposal in the open Effort. Show it and stop. A Spec Proposal is resumable but cannot drive a Task Graph.
+2. For an existing Spec Record, any material change to Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Out of Scope, or Risks is a next Spec Proposal retained in the open Effort. The current confirmed Spec remains the only source contract until confirmation.
+3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, and stable Acceptance Criterion IDs. Requirements describe observable capability; Acceptance Criteria describe observable evidence.
+4. Confirming a Spec Proposal requires clear user intent. On confirmation, write or update exactly one Markdown Spec Record in .ai/specs/. Use YAML frontmatter with its source Effort path and integer revision. Keep concise # Revisions history in the same file; Git history preserves prior text. Remove the confirmed proposal from the Effort and append a concise Session History entry.
+5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports.
+6. Write files only after the user confirms. Do not automatically stage or commit them. Stop after displaying an unconfirmed Spec Proposal; do not infer confirmation from a vague request to continue.
+
+Internal Decomposition and Task Graph
+
+After a Spec Proposal is confirmed, internally derive a Task Graph and show it before creating Task Briefs. For every proposed Task show:
+
+* an immutable Task ID and concise goal
+* owned Requirement ID and Acceptance Criterion ID lists
+* the one Verification Owner for every owned Acceptance Criterion
+* validation evidence it will produce
+* depends_on Task IDs only where work or validation is truly blocked
+
+Before showing a Task Graph, validate that it is complete and coherent:
+
+* every included Requirement ID and Acceptance Criterion ID has explicit Task coverage
+* every Acceptance Criterion ID has exactly one Verification Owner
+* Task IDs are unique, and every depends_on reference resolves within the graph
+* dependencies are true blockers, not preferred order, and form no cycle
+* each Task is independently executable once its direct dependencies complete
+
+An accepted Current Task Graph must record the Spec revision it represents. When the selected Spec has no accepted graph for its current revision, re-derive the candidate from the latest Spec and existing generated Task Briefs, display the complete graph, and stop for a new explicit confirmation. Never accept graph approval solely from a previous conversation display.
+
+Require a second explicit confirmation for the complete Task Graph. A confirmed graph creates all required new Task Briefs all-or-nothing. Prepare a staged copy of the Spec Record with the accepted graph under # Current Task Graph and every generated Task ID marked Task Compatible, plus Briefs only for new or materially changed Task IDs, in a unique staging directory below .ai. Retained compatible Task IDs are recorded in the accepted graph but never staged, overwritten, moved, or otherwise changed. Validate ID, coverage, dependency, and final filename collisions before promotion. Then write the staged Spec Record and promote the staged Briefs while tracking only the final paths created by this invocation. If any promotion fails, remove only those promoted Briefs, restore the prior Spec Record from its snapshot, clean the staging directory, and report the failure without claiming graph confirmation. If cleanup or restoration fails, report the exact inconsistent paths and stop. Do not automatically implement any generated Task.
+
+Generated Task Brief Contract
+
+Create each generated Brief with normal execution sections plus immutable # Task Graph Metadata containing:
+
+* Task ID
+* source Effort path, source Spec Record path, and source Spec revision
+* owned Requirement IDs and Acceptance Criterion IDs
+* Verification Owner Acceptance Criterion IDs
+* depends_on Task IDs
+
+The metadata cannot be changed during task implementation. Task-specific Context or Revisions may capture narrow execution clarification, while any change to goal, source conditions, ownership, constraints, or dependencies returns to a Spec Proposal and this Skill.
+
+Spec Revisions and Task Compatibility
+
+When confirming a later Spec revision, first create an Impact Report and candidate Task Graph. Compare existing generated Task IDs to the candidate graph:
+
+* retain a compatible Task ID when its goal, owned source conditions, and blockers still match
+* allocate a new Task ID for new or materially changed work
+* preserve an incompatible Task Brief without editing, deleting, cancelling, archiving, or automatically replacing it
+
+Record the accepted graph and compatibility result in the Spec Record. A later task-implement invocation may run only a generated Task ID that remains compatible with this latest graph. Show incompatible active Tasks as requiring resolution in Effort status.
+
+Output
+
+For a Spec Proposal, show the proposal and its Effort path, then stop. For a confirmed Spec, show the Spec Record path, revision, and candidate Task Graph, then stop. For a confirmed graph, report the full set of created Task Brief paths and the next unblocked Tasks. Use clear user intent for every confirmation boundary.`;
+
+const EFFORT_EXPLORE_DESCRIPTION = 'Manage a durable Effort through natural-language exploration, status reporting, continuation, confirmed closure, and explicit reopening.';
+const EFFORT_SPEC_DESCRIPTION = 'Turn a ready Effort into a confirmed Spec Record and a reviewed Task Graph through explicit natural-language confirmations.';
 
 const TASK_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
 const BUG_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
+
+const TASK_GRAPH_EXECUTION_GUIDANCE = `Generated Task Gate and Task Compatibility
+
+Apply this section only when the selected Task Brief has # Task Graph Metadata with a Task ID. Legacy Task Briefs without Task Graph Metadata keep the existing selection, implementation, and archive behavior.
+
+Before making code changes for a generated Task:
+
+1. Read the Task ID, source Spec Record path and revision, owned Requirement IDs and Acceptance Criterion IDs, Verification Owner IDs, and depends_on Task IDs. Treat this Task Graph Metadata as immutable.
+2. Resolve every direct depends_on Task ID across .ai/tasks/active/ and .ai/tasks/archive/. A dependency is complete only when exactly one matching Brief is in the archive. If a dependency is active, missing, duplicated, or otherwise unresolved, list every blocker and stop. Do not modify code, move a Brief, or select another Task automatically.
+3. Read the latest confirmed Current Task Graph from the source Spec Record. The selected Task ID must be recorded as Task Compatible. If it is incompatible, superseded, missing, or requires resolution, stop and direct the user to effort-spec; do not implement an obsolete contract.
+4. Follow the selected Brief's owned conditions only. A material change to its goal, source conditions, ownership, constraints, or dependencies requires a Spec Proposal and re-decomposition, not a local Brief rewrite.
+
+Before archiving a completed generated Task, append # Completion Evidence to the active Brief. Record the completion date, validations run and their results, and the Requirement IDs and Acceptance Criterion IDs satisfied. A Verification Owner must record final evidence for every Acceptance Criterion it owns. Only then move the Brief to .ai/tasks/archive/.
+`;
 
 const TASK_EXECUTION_CONSTRAINT_GUIDANCE = `Implementation Constraints
 
@@ -724,14 +824,26 @@ ${TASK_FAST_ESCALATION_GUIDANCE}
 
   'effort-explore': {
     name: 'effort-explore',
-    description: 'Manage a durable Effort through natural-language exploration, status reporting, continuation, and confirmed closure.',
+    description: EFFORT_EXPLORE_DESCRIPTION,
     content: `---
 name: effort-explore
-description: Manage a durable Effort through natural-language exploration, status reporting, continuation, and confirmed closure.
+description: ${EFFORT_EXPLORE_DESCRIPTION}
 user-invocable: true
 ---
 
 ${EFFORT_EXPLORATION_GUIDANCE}`,
+  },
+
+  'effort-spec': {
+    name: 'effort-spec',
+    description: EFFORT_SPEC_DESCRIPTION,
+    content: `---
+name: effort-spec
+description: ${EFFORT_SPEC_DESCRIPTION}
+user-invocable: true
+---
+
+${EFFORT_SPEC_GUIDANCE}`,
   },
 
   'task-explore': {
@@ -759,10 +871,10 @@ ${TASK_EXPLORATION_WORKFLOW_GUIDANCE}
 
   'task-implement': {
     name: 'task-implement',
-    description: 'Implement a selected active task brief and validate it. Archive automatically when complete.',
+    description: 'Implement a selected active task brief and validate it, enforcing Task Graph blockers for generated briefs. Archive automatically when complete.',
     content: `---
 name: task-implement
-description: Implement a selected active task brief and validate it. Archive automatically when complete.
+description: Implement a selected active task brief and validate it, enforcing Task Graph blockers for generated briefs. Archive automatically when complete.
 user-invocable: true
 ---
 
@@ -775,10 +887,13 @@ ${WORKSPACE_CONTEXT_GUIDANCE}
 Rules
 
 1. ${TASK_BRIEF_SELECTION_RULE}
-2. Prepare with Brief Sufficiency and Current Decision Check before changing code.
-3. Use Execution Mode below to choose direct execution or an Implementation Proposal.
-4. Validate the result before reporting the work complete.
-5. If the work is complete, archive the selected brief automatically by moving it to .ai/tasks/archive/.
+2. Apply Generated Task Gate before changing code when Task Graph Metadata is present.
+3. Prepare with Brief Sufficiency and Current Decision Check before changing code.
+4. Use Execution Mode below to choose direct execution or an Implementation Proposal.
+5. Validate the result before reporting the work complete.
+6. If the work is complete, append Completion Evidence when required, then archive the selected brief automatically by moving it to .ai/tasks/archive/.
+
+${TASK_GRAPH_EXECUTION_GUIDANCE}
 
 ${TASK_BRIEF_SUFFICIENCY_GUIDANCE}
 
@@ -1577,7 +1692,7 @@ export function init(cwd, { fs, path, log }) {
   log.info(`\nTask workflow initialized. Recommended flows:
   explore: project-explore
   fast:  task-fast
-  effort: effort-explore (large or uncertain work)
+  effort: effort-explore -> effort-spec (ready Effort to reviewed Tasks)
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
@@ -1603,7 +1718,7 @@ export function refresh(cwd, { fs, path, log }) {
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   explore: project-explore
   fast:  task-fast
-  effort: effort-explore (large or uncertain work)
+  effort: effort-explore -> effort-spec (ready Effort to reviewed Tasks)
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
@@ -1637,6 +1752,7 @@ export function doctor(cwd, { fs, path, log }) {
     BUG_ARCHIVE_DIR,
     EFFORT_ACTIVE_DIR,
     EFFORT_ARCHIVE_DIR,
+    SPECS_DIR,
     '.ai/decisions',
   ];
 
