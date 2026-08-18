@@ -42,6 +42,7 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
   assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'active')), true);
   assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'archive')), true);
   assert.equal(existsSync(path.join(project, '.ai', 'specs')), true);
+  assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
   assert.equal(existsSync(path.join(project, 'workspace.yaml')), false);
   assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /workspace\.local\.yaml/);
   assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /\.ai\/efforts\/active\/\*\.md/);
@@ -84,6 +85,18 @@ test('init installs one natural-language effort exploration skill for both provi
     assert.match(skill, /state: closed/);
     assert.match(skill, /multiple plausible Efforts/);
     assert.match(skill, /For every request about an existing Effort/);
+    assert.match(skill, /Evidence Discipline/);
+    assert.match(skill, /# Evidence Ledger/);
+    assert.match(skill, /## Observed Facts/);
+    assert.match(skill, /## Inferred Rationale/);
+    assert.match(skill, /## Evidence Conflicts/);
+    assert.match(skill, /Never convert an inference, hypothesis, or observed fact into a Confirmed Decision/);
+    assert.match(skill, /Optional Project Glossary/);
+    assert.match(skill, /CONTEXT\.md.*optional, single glossary/);
+    assert.match(skill, /Glossary Check/);
+    assert.match(skill, /Do not create a glossary or change it just because a word appeared/);
+    assert.match(skill, /explicitly confirms the exact proposed edit/);
+    assert.match(skill, /Do not infer \`CONTEXT-MAP\.md\` support/);
     assert.match(skill, /# Closure/);
     assert.match(skill, /record the closure reason/);
     assert.match(skill, /explicit confirmation/);
@@ -113,6 +126,11 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
     assert.match(effortSpec, /Requirement ID/);
     assert.match(effortSpec, /Acceptance Criterion ID/);
     assert.match(effortSpec, /Verification Owner/);
+    assert.match(effortSpec, /Verification Boundaries/);
+    assert.match(effortSpec, /highest observable seam/);
+    assert.match(effortSpec, /Acceptance Criterion ID -> Verification Boundary mapping/);
+    assert.match(effortSpec, /independently observable end-to-end behavior/);
+    assert.match(effortSpec, /expand-migrate-contract/);
     assert.match(effortSpec, /all-or-nothing/);
     assert.match(effortSpec, /re-derive the candidate from the latest Spec and existing generated Task Briefs/);
     assert.match(effortSpec, /Never accept graph approval solely from a previous conversation display/);
@@ -121,9 +139,10 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
     assert.match(effortSpec, /Retained compatible Task IDs are recorded in the accepted graph but never staged, overwritten, moved, or otherwise changed/);
     assert.match(effortSpec, /remove only those promoted Briefs/);
     assert.match(effortSpec, /restore the prior Spec Record from its snapshot/);
-    assert.match(effortSpec, /Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Out of Scope, or Risks/);
+    assert.match(effortSpec, /Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks/);
     assert.match(effortSpec, /Impact Report/);
     assert.match(effortSpec, /Task Compatibility/);
+    assert.match(effortSpec, /owned source conditions, Acceptance Criterion ID -> Verification Boundary mappings, and blockers still match/);
     assert.match(effortSpec, /automatically stage or commit/);
     assert.doesNotMatch(effortSpec, /task-decompose/);
 
@@ -132,6 +151,7 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
     assert.match(taskImplement, /Task ID/);
     assert.match(taskImplement, /Completion Evidence/);
     assert.match(taskImplement, /Task Compatibility/);
+    assert.match(taskImplement, /Acceptance Criterion ID -> Verification Boundary mappings/);
     assert.match(taskImplement, /Legacy Task Briefs without Task Graph Metadata/);
   }
 });
@@ -153,6 +173,28 @@ test('init installs evidence-based brief metadata guidance for task and bug work
       assert.match(skill, /omit fields that have no value; do not add empty placeholders/);
       assert.match(skill, /omit frontmatter only when none of these fields has an evidence-backed value/);
     }
+  }
+});
+
+test('init installs diagnostic feedback-loop and regression-loop rules for bugs', (t) => {
+  const project = createTemporaryDirectory(t);
+  initializeGitRepository(project);
+
+  const initResult = runTask(project, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const bugExplore = readFileSync(path.join(skillsDirectory, 'bug-explore', 'SKILL.md'), 'utf-8');
+    const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
+
+    assert.match(bugExplore, /Diagnostic Loop/);
+    assert.match(bugExplore, /tight feedback loop/);
+    assert.match(bugExplore, /red-capable symptom/);
+    assert.match(bugExplore, /Do not output BUG_READY or claim a confirmed root cause/);
+    assert.match(bugFix, /Regression Loop/);
+    assert.match(bugFix, /failing regression test before the fix/);
+    assert.match(bugFix, /temporary diagnostic logging or instrumentation/);
   }
 });
 
@@ -278,6 +320,7 @@ test('init installs adaptive direct completion and frontier grilling without pla
 
   const refreshResult = runTask(project, 'refresh');
   assert.equal(refreshResult.status, 0, output(refreshResult));
+  assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
   for (const skillRoot of ['.claude', '.codex']) {
     const refreshedTaskFast = readFileSync(
       path.join(project, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
@@ -395,6 +438,7 @@ test('use-context keeps skills at the launch root and routes workflow state to a
   assert.equal(existsSync(path.join(context, '.ai', 'efforts', 'active')), true);
   assert.equal(existsSync(path.join(context, '.ai', 'efforts', 'archive')), true);
   assert.equal(existsSync(path.join(context, '.ai', 'specs')), true);
+  assert.equal(existsSync(path.join(context, 'CONTEXT.md')), false);
   assert.match(readFileSync(path.join(context, '.gitignore'), 'utf-8'), /\.ai\/efforts\/active\/\*\.md/);
   writeFileSync(path.join(context, '.ai', 'efforts', 'active', 'context-effort.md'), '# Context Effort\n');
   assert.doesNotThrow(() => execFileSync(

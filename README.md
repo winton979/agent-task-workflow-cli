@@ -49,9 +49,13 @@ Every task and bug entry starts with an evidence-based direct-completion check. 
 
 `task-explore` and `bug-explore` use the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency. Non-direct exploration maps decisions as a tree and asks the independent frontier in rounds, with a recommendation for each question.
 
-`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort. Ask to continue it, check its status, close it, or explicitly reopen it; closure always requires confirmation and preserves the archived record.
+`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort, while keeping observed facts, inferred rationale, and evidence conflicts distinct from user-confirmed decisions. Ask to continue it, check its status, close it, or explicitly reopen it; closure always requires confirmation and preserves the archived record.
 
-`effort-spec` turns a ready open Effort into a resumable Spec Proposal. After explicit Spec confirmation, it writes a version-controlled Spec Record in `.ai/specs/` and internally presents a Task Graph. A second confirmation creates all generated Task Briefs together. Generated Tasks retain source-condition traceability, true dependency gates, and completion evidence; existing Task and Bug flows remain unchanged.
+`CONTEXT.md` is an optional single glossary at the workflow state root. `task init` does not create it. When a material project term is ambiguous, conflicts with the glossary or code, or becomes a stable cross-task concept, `effort-explore` proposes a concise glossary edit and waits for explicit confirmation. It never treats the glossary as a Spec, decision log, or session record.
+
+`effort-spec` turns a ready open Effort into a resumable Spec Proposal. After explicit Spec confirmation, it writes a version-controlled Spec Record in `.ai/specs/` and internally presents a Task Graph. A second confirmation creates all generated Task Briefs together. Each acceptance criterion has a highest practical Verification Boundary, and Tasks normally deliver independently observable end-to-end behavior; a wide mechanical refactor uses an explicit expand-migrate-contract sequence. Generated Tasks retain source-condition traceability, true dependency gates, and completion evidence; existing Task and Bug flows remain unchanged.
+
+For a non-direct Bug, `bug-explore` first establishes a red-capable, redacted diagnostic loop before it can confirm a root cause or produce `BUG_READY`. `bug-fix` reuses that loop for regression evidence and removes temporary diagnostic instrumentation before archival.
 
 ## Decision Memory
 

@@ -79,3 +79,15 @@ _Avoid_: spec
 **Effort Record State**:
 The only persisted lifecycle marker of an Effort: `open` while it can be resumed and `closed` once the user has explicitly ended it. An explicit reopening returns a closed record to `open`; readiness, blocking, and pause are derived from the record's current content rather than stored states.
 _Avoid_: task status, execution status
+
+**Project Glossary**:
+An optional `CONTEXT.md` at the workflow state root that defines canonical project-specific terms shared by managed workflows. It contains concise concept definitions and avoided synonyms, not Specs, decision entries, evidence, or session history.
+_Avoid_: decision log, Spec, per-repository glossary
+
+**Verification Boundary**:
+The highest practical observable seam at which one Acceptance Criterion can be shown true without asserting implementation details. It is part of the confirmed Spec contract and guides the Task that owns final evidence.
+_Avoid_: unit-test detail, implementation assertion, test file
+
+**Diagnostic Loop**:
+A named, red-capable command, test, script, replay, or harness that exercises a reported Bug's exact symptom and can be re-run as correction evidence. It is evidence, not a root-cause claim.
+_Avoid_: vague reproduction steps, nearby failure, untested hypothesis

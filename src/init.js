@@ -54,6 +54,14 @@ Without context_repository, the launch root remains the workflow state root and 
 
 Retain the resulting absolute canonical directory as \`workflowStateRoot\`. Every .ai read, write, move, or delete must use an absolute path below \`<workflowStateRoot>/.ai\`. Never use a relative \`.ai/...\` path, infer the state root from the current command directory, or choose an existing .ai directory in a nested or registered repository.
 
+Optional Project Glossary
+
+\`<workflowStateRoot>/CONTEXT.md\` is an optional, single glossary of canonical project-specific terms. Do not infer \`CONTEXT-MAP.md\` support or search registered repositories for separate glossaries.
+
+* When this file exists and terms relevant to the current work are in question, read it with the relevant project artifacts.
+* A glossary entry defines what one project-specific concept is in one or two sentences and may name avoided synonyms. It is not a Spec, decision log, Evidence Ledger, or implementation diary.
+* \`task init\` and \`task refresh\` never create this file. Only effort-explore may propose an explicit glossary edit.
+
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Treat repositories whose resolved disabled flag is true as unavailable for routine development in the current cycle. Do not select, inspect, index, or include them in a working set unless the user explicitly asks about that repository.
 * Select only the repositories relevant to the current question or task, and inspect their current code, tests, configuration, and history as needed.
@@ -227,6 +235,16 @@ When complete output:
 
 TASK_READY`;
 
+const BUG_DIAGNOSTIC_LOOP_GUIDANCE = `Diagnostic Loop
+
+For a non-direct Bug, establish a tight feedback loop before confirming a root cause or outputting BUG_READY. The loop is a named command, test, script, replay, or harness that has already run and can go red on the user's exact symptom and green after its correction.
+
+1. Build the narrowest practical loop from an existing test seam, a focused service or CLI invocation, a browser check, a captured replay, or a throwaway harness. Make it fast, deterministic, and unattended where possible. For an intermittent failure, record and improve its reproduction rate rather than claiming determinism.
+2. Redact credentials, tokens, personal data, and authorization headers from commands, output, logs, and captured artifacts before recording or showing them.
+3. Reproduce the reported symptom through the loop, then minimize the scenario until the remaining inputs, configuration, and steps are load-bearing. Do not substitute a nearby failure.
+4. When material root-cause alternatives remain, record ranked, falsifiable hypotheses. Each one must name the predicted observation and its discriminating check. Change one variable per probe; do not turn an untested hypothesis into a Confirmed Root Cause.
+5. When no suitable loop can be established, state what was tried and request the missing environment access, redacted artifact, or permission for temporary instrumentation. Do not output BUG_READY or claim a confirmed root cause until evidence becomes sufficient.`;
+
 const BUG_EXPLORATION_WORKFLOW_GUIDANCE = `Full Bug Exploration
 
 Use this when Direct Completion does not qualify. Continue in the current invocation:
@@ -243,6 +261,8 @@ ${GRILLING_GUIDANCE}
 
 ${DECISIONS_READ_GUIDANCE}
 
+${BUG_DIAGNOSTIC_LOOP_GUIDANCE}
+
 Bug Brief Format
 
 ${BRIEF_METADATA_GUIDANCE}
@@ -258,6 +278,8 @@ Expected result.
 # Evidence
 
 Supporting observations, including what remains unknown.
+
+For a non-direct bug, also record the diagnostic loop command or script, the exact red-capable symptom it asserts, its relevant environment or fixture, and the observed determinism or reproduction rate. Keep only redacted command output and captured artifacts. When minimization is possible, record the smallest reproducing scenario and its load-bearing inputs.
 
 # Root Cause Hypotheses
 
@@ -320,6 +342,14 @@ state: open
 
 # Context
 
+# Evidence Ledger
+
+## Observed Facts
+
+## Inferred Rationale
+
+## Evidence Conflicts
+
 # Confirmed Decisions
 
 # Current Frontier
@@ -343,7 +373,7 @@ Natural-Language Workflow
 
 Interpret the user's natural-language request as one of: create an Effort, continue or update an Effort, report its status, close it, or reopen it.
 
-1. For a new Effort, establish its Destination and record only confirmed context, decisions, constraints, current frontier, unknowns, and scope boundaries. Use the Grilling protocol for material user decisions. Do not treat a hypothesis or an exploration finding as a Confirmed Decision.
+1. For a new Effort, establish its Destination and record only confirmed context, decisions, constraints, current frontier, unknowns, and scope boundaries. Apply Evidence Discipline before recording material content. Use the Grilling protocol for material user decisions. Do not treat a hypothesis or an exploration finding as a Confirmed Decision.
 2. For every request about an existing Effort, use a user-specified name or path. Without one, proceed only when exactly one open record is an unambiguous match. When there are multiple plausible Efforts, list the candidates and ask the user to select one; never choose by recency.
 3. When asked for status, read the entire record selected under the previous rule and report its Destination, Current Frontier, Open Unknowns, confirmed decisions relevant to the next action, and the derived condition:
    * ready when no material current frontier or open unknown remains
@@ -354,6 +384,24 @@ Interpret the user's natural-language request as one of: create an Effort, conti
 5. When the user clearly asks to reopen a closed Effort, use a named or uniquely matching archived record. State that it will return to \`state: open\`, ask for a reopening reason when absent, and wait for explicit confirmation. After confirmation, move it to the active directory, record the reopening reason in Session History, and continue from its current context. Never reopen automatically.
 
 Rules
+
+Evidence Discipline
+
+Before adding or changing a material Context entry, Known Constraint, Confirmed Decision, Current Frontier item, or Open Unknown:
+
+1. Inspect the relevant code, tests, configuration, documentation, active decisions, and repository history when those sources can establish or constrain the point. Look up repository facts instead of asking the user for them.
+2. Record repository-observable facts under # Evidence Ledger / ## Observed Facts with concise source references. Record an evidence-backed explanation only under ## Inferred Rationale and label it as an inference. Record material conflicting evidence under ## Evidence Conflicts.
+3. Treat an unresolved material conflict or unsupported assumption as a Current Frontier item or Open Unknown. Never convert an inference, hypothesis, or observed fact into a Confirmed Decision.
+4. Put a material user-owned choice in # Confirmed Decisions only after the user explicitly confirms it. Include the relevant evidence or decision context concisely so later sessions can distinguish the outcome from its basis.
+
+Glossary Check
+
+Apply this check when an Effort relies on a material domain or workflow term:
+
+1. Read \`<workflowStateRoot>/CONTEXT.md\` when it exists. When a user term conflicts with its canonical language, is ambiguous, or is overloaded, state the conflict and ask which meaning applies. Do not choose a meaning silently.
+2. Cross-check a stated term or relationship against relevant code and evidence. Treat a material mismatch as an Evidence Conflict and a Current Frontier item until it is resolved.
+3. When a newly settled term is project-specific and will repeatedly affect scope, boundaries, names, or behavior across later work, propose the exact concise glossary edit, including any avoided synonym. Do not create a glossary or change it just because a word appeared.
+4. Wait until the user explicitly confirms the exact proposed edit before creating or modifying \`<workflowStateRoot>/CONTEXT.md\`. Keep the Effort's # Confirmed Decisions, Spec, and Evidence Ledger as their own records; refer to canonical terms rather than duplicating their definitions there.
 
 * Read \`.ai/decisions/decisions.md\` when relevant active decisions may constrain the Effort. Preserve them as context; do not duplicate them as new durable decisions.
 * Maintain the Current Frontier as the independent material questions or external prerequisites that can be acted on next. Keep dependent questions out of the frontier until their prerequisites are settled.
@@ -390,10 +438,10 @@ Selection and Entry
 Spec Proposal and Spec Record
 
 1. For a ready Effort without a Spec Record, derive a Spec Proposal and retain it under # Spec Proposal in the open Effort. Show it and stop. A Spec Proposal is resumable but cannot drive a Task Graph.
-2. For an existing Spec Record, any material change to Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Out of Scope, or Risks is a next Spec Proposal retained in the open Effort. The current confirmed Spec remains the only source contract until confirmation.
-3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, and stable Acceptance Criterion IDs. Requirements describe observable capability; Acceptance Criteria describe observable evidence.
+2. For an existing Spec Record, any material change to Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks is a next Spec Proposal retained in the open Effort. The current confirmed Spec remains the only source contract until confirmation.
+3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, stable Acceptance Criterion IDs, and Verification Boundaries. Requirements describe observable capability; Acceptance Criteria describe observable evidence. Verification Boundaries must map every Acceptance Criterion ID to one boundary: the highest observable seam at which its outcome can be shown without asserting implementation details.
 4. Confirming a Spec Proposal requires clear user intent. On confirmation, write or update exactly one Markdown Spec Record in .ai/specs/. Use YAML frontmatter with its source Effort path and integer revision. Keep concise # Revisions history in the same file; Git history preserves prior text. Remove the confirmed proposal from the Effort and append a concise Session History entry.
-5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports.
+5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Verification Boundaries, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports.
 6. Write files only after the user confirms. Do not automatically stage or commit them. Stop after displaying an unconfirmed Spec Proposal; do not infer confirmation from a vague request to continue.
 
 Internal Decomposition and Task Graph
@@ -403,6 +451,7 @@ After a Spec Proposal is confirmed, internally derive a Task Graph and show it b
 * an immutable Task ID and concise goal
 * owned Requirement ID and Acceptance Criterion ID lists
 * the one Verification Owner for every owned Acceptance Criterion
+* the Acceptance Criterion ID -> Verification Boundary mapping for every owned Acceptance Criterion
 * validation evidence it will produce
 * depends_on Task IDs only where work or validation is truly blocked
 
@@ -410,9 +459,16 @@ Before showing a Task Graph, validate that it is complete and coherent:
 
 * every included Requirement ID and Acceptance Criterion ID has explicit Task coverage
 * every Acceptance Criterion ID has exactly one Verification Owner
+* every Acceptance Criterion ID has one explicit Verification Boundary mapping at its highest practical observable seam
 * Task IDs are unique, and every depends_on reference resolves within the graph
 * dependencies are true blockers, not preferred order, and form no cycle
 * each Task is independently executable once its direct dependencies complete
+
+Task Slice Rules
+
+Each Task normally delivers one independently observable end-to-end behavior, not a horizontal implementation layer. A Task that cannot name what becomes demonstrably true when it completes must be merged, split, or re-derived.
+
+The only exception is a wide mechanical refactor whose blast radius makes an independently green vertical slice impossible. Declare it explicitly as one expand-migrate-contract sequence: expand keeps old and new forms valid, each migrate Task moves a bounded caller batch after expand, and contract removes the old form only after every migrate Task completes. Do not use this exception for ordinary feature decomposition.
 
 An accepted Current Task Graph must record the Spec revision it represents. When the selected Spec has no accepted graph for its current revision, re-derive the candidate from the latest Spec and existing generated Task Briefs, display the complete graph, and stop for a new explicit confirmation. Never accept graph approval solely from a previous conversation display.
 
@@ -426,6 +482,7 @@ Create each generated Brief with normal execution sections plus immutable # Task
 * source Effort path, source Spec Record path, and source Spec revision
 * owned Requirement IDs and Acceptance Criterion IDs
 * Verification Owner Acceptance Criterion IDs
+* Acceptance Criterion ID -> Verification Boundary mappings for owned Acceptance Criterion IDs
 * depends_on Task IDs
 
 The metadata cannot be changed during task implementation. Task-specific Context or Revisions may capture narrow execution clarification, while any change to goal, source conditions, ownership, constraints, or dependencies returns to a Spec Proposal and this Skill.
@@ -434,7 +491,7 @@ Spec Revisions and Task Compatibility
 
 When confirming a later Spec revision, first create an Impact Report and candidate Task Graph. Compare existing generated Task IDs to the candidate graph:
 
-* retain a compatible Task ID when its goal, owned source conditions, and blockers still match
+* retain a compatible Task ID when its goal, owned source conditions, Acceptance Criterion ID -> Verification Boundary mappings, and blockers still match
 * allocate a new Task ID for new or materially changed work
 * preserve an incompatible Task Brief without editing, deleting, cancelling, archiving, or automatically replacing it
 
@@ -456,10 +513,10 @@ Apply this section only when the selected Task Brief has # Task Graph Metadata w
 
 Before making code changes for a generated Task:
 
-1. Read the Task ID, source Spec Record path and revision, owned Requirement IDs and Acceptance Criterion IDs, Verification Owner IDs, and depends_on Task IDs. Treat this Task Graph Metadata as immutable.
+1. Read the Task ID, source Spec Record path and revision, owned Requirement IDs and Acceptance Criterion IDs, Verification Owner IDs, Acceptance Criterion ID -> Verification Boundary mappings, and depends_on Task IDs. Treat this Task Graph Metadata as immutable.
 2. Resolve every direct depends_on Task ID across .ai/tasks/active/ and .ai/tasks/archive/. A dependency is complete only when exactly one matching Brief is in the archive. If a dependency is active, missing, duplicated, or otherwise unresolved, list every blocker and stop. Do not modify code, move a Brief, or select another Task automatically.
 3. Read the latest confirmed Current Task Graph from the source Spec Record. The selected Task ID must be recorded as Task Compatible. If it is incompatible, superseded, missing, or requires resolution, stop and direct the user to effort-spec; do not implement an obsolete contract.
-4. Follow the selected Brief's owned conditions only. A material change to its goal, source conditions, ownership, constraints, or dependencies requires a Spec Proposal and re-decomposition, not a local Brief rewrite.
+4. Follow the selected Brief's owned conditions only. Validate each owned Acceptance Criterion at its recorded Acceptance Criterion ID -> Verification Boundary mapping whenever practical; do not substitute a lower-level implementation test when that boundary can be exercised. A material change to its goal, source conditions, ownership, constraints, dependencies, or Verification Boundary mappings requires a Spec Proposal and re-decomposition, not a local Brief rewrite.
 
 Before archiving a completed generated Task, append # Completion Evidence to the active Brief. Record the completion date, validations run and their results, and the Requirement IDs and Acceptance Criterion IDs satisfied. A Verification Owner must record final evidence for every Acceptance Criterion it owns. Only then move the Brief to .ai/tasks/archive/.
 `;
@@ -480,6 +537,15 @@ const BUG_FIX_CONSTRAINT_GUIDANCE = `Fix Constraints
 * State assumptions explicitly.
 * Explain material reasoning.
 * Define the validation required before the fix can be reported complete.`;
+
+const BUG_REGRESSION_LOOP_GUIDANCE = `Regression Loop
+
+For a Bug Brief that records a diagnostic loop:
+
+1. Re-run the recorded loop before changing code to confirm the reported symptom still goes red. If the current evidence no longer reproduces it, surface that contradiction instead of claiming a fix.
+2. When a correct test seam can exercise the minimized real bug pattern, turn that scenario into a failing regression test before the fix, observe it fail, then observe it pass after the correction. A shallow test that cannot exercise the real pattern is not acceptable evidence; state when no correct seam exists.
+3. Re-run the original diagnostic loop after the correction. Preserve the redacted evidence and result under # Fix Evidence in the Bug Brief.
+4. Tag any temporary diagnostic logging or instrumentation with one unique prefix. Before archiving, search for that prefix and remove all temporary instrumentation; do not leave debugging scaffolding in the completed fix.`;
 
 const TASK_BRIEF_SUFFICIENCY_GUIDANCE = `Brief Sufficiency
 
@@ -1099,13 +1165,15 @@ Rules
 2. Prepare with Fix Sufficiency and Current Decision Check before changing code.
 3. Use Fix Strategy below to choose direct fixing or a Fix Strategy Proposal.
 4. Validate the fix before reporting it complete.
-5. If the bug is fixed, archive the brief automatically by moving it to .ai/bugs/archive/.
+5. If the bug is fixed, append # Fix Evidence to the active brief before archiving: record the completion date, validation results, the diagnostic-loop result when one exists, and the confirmed cause or remaining uncertainty. Then move it to .ai/bugs/archive/.
 
 ${BUG_FIX_SUFFICIENCY_GUIDANCE}
 
 ${CURRENT_DECISION_CHECK_GUIDANCE}
 
 ${BUG_FIX_CONSTRAINT_GUIDANCE}
+
+${BUG_REGRESSION_LOOP_GUIDANCE}
 
 ${BUG_FIX_DECISION_GUIDANCE}
 
