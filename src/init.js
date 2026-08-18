@@ -24,6 +24,8 @@ const {
   TASK_ARCHIVE_DIR,
   BUG_ACTIVE_DIR,
   BUG_ARCHIVE_DIR,
+  EFFORT_ACTIVE_DIR,
+  EFFORT_ARCHIVE_DIR,
   DECISIONS_FILE,
   WORKSPACE_FILE,
   WORKSPACE_LOCAL_FILE,
@@ -35,6 +37,7 @@ const GITIGNORE_BLOCK = [
   '# task workflow',
   '.ai/tasks/active/*.md',
   '.ai/bugs/active/*.md',
+  '.ai/efforts/active/*.md',
   WORKSPACE_LOCAL_FILE,
 ].join('\n');
 
@@ -291,6 +294,72 @@ ${TASK_EXPLORATION_WORKFLOW_GUIDANCE}
 ## Bug route
 
 ${BUG_EXPLORATION_WORKFLOW_GUIDANCE}`;
+
+const EFFORT_EXPLORATION_GUIDANCE = `Purpose
+
+Manage a durable Effort for a large or uncertain request through natural-language conversation. An Effort holds unresolved material decisions; it is not a Task and does not implement code, create a Spec, or decompose Tasks.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Effort Records
+
+Resolve every Effort path from \`workflowStateRoot\`:
+
+* open records: \`<workflowStateRoot>/.ai/efforts/active/\`
+* closed records: \`<workflowStateRoot>/.ai/efforts/archive/\`
+
+Create each open record as \`YYYY-MM-DD-effort-name.md\` with this durable structure:
+
+\`\`\`markdown
+---
+state: open
+---
+
+# Destination
+
+# Context
+
+# Confirmed Decisions
+
+# Current Frontier
+
+# Known Constraints
+
+# Open Unknowns
+
+# Out of Scope
+
+# Session History
+
+# Closure
+\`\`\`
+
+The only persisted lifecycle marker is \`state: open\` or \`state: closed\`. Do not persist paused, blocked, exploring, or ready as states.
+
+Natural-Language Workflow
+
+Interpret the user's natural-language request as one of: create an Effort, continue or update an Effort, report its status, or close it.
+
+1. For a new Effort, establish its Destination and record only confirmed context, decisions, constraints, current frontier, unknowns, and scope boundaries. Use the Grilling protocol for material user decisions. Do not treat a hypothesis or an exploration finding as a Confirmed Decision.
+2. For every request about an existing Effort, use a user-specified name or path. Without one, proceed only when exactly one open record is an unambiguous match. When there are multiple plausible Efforts, list the candidates and ask the user to select one; never choose by recency.
+3. When asked for status, read the entire record selected under the previous rule and report its Destination, Current Frontier, Open Unknowns, confirmed decisions relevant to the next action, and the derived condition:
+   * ready when no material current frontier or open unknown remains
+   * blocked when every current frontier item is an external prerequisite the agent cannot advance
+   * exploring otherwise
+   These are natural-language conclusions, not persisted states. Leaving the conversation pauses an open Effort without changing its record.
+4. When the user clearly asks to close an Effort, ask for a closure reason when the request does not provide one. First state that the record will be marked \`state: closed\`, record the closure reason under \`# Closure\`, and move to the archive. Wait for explicit confirmation before changing or moving it. After confirmation, make those changes and report the archived path and closure reason. Do not delete code, Task artifacts, Bug artifacts, or unrelated user changes.
+
+Rules
+
+* Read \`.ai/decisions/decisions.md\` when relevant active decisions may constrain the Effort. Preserve them as context; do not duplicate them as new durable decisions.
+* Maintain the Current Frontier as the independent material questions or external prerequisites that can be acted on next. Keep dependent questions out of the frontier until their prerequisites are settled.
+* A ready Effort may be handed to a future Spec workflow, but Phase 1 must not create a Spec or Task Brief automatically.
+* Keep Session History concise: retain decisions, scope changes, and externally relevant facts rather than a transcript of every conversation.
+* Do not modify existing Task or Bug records unless the user explicitly invoked their separate workflow.
+
+Output
+
+For status or continuation, answer directly with the relevant Effort context and the next frontier. For a new or updated record, show the saved path and a concise summary. For closure, output only the archive confirmation request until the user confirms; after confirmation, report the archived path and closure reason.`;
 
 const TASK_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/tasks/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
 const BUG_BRIEF_SELECTION_RULE = 'Identify the intended brief in .ai/bugs/active/. Use a user-specified name or path when provided. Without one, proceed only when a single brief is the clear match. Ask the user when multiple briefs are plausible; do not choose by recency alone.';
@@ -651,6 +720,18 @@ If it does not qualify, do not ask the user to choose another skill or rerun the
 
 ${TASK_FAST_ESCALATION_GUIDANCE}
 `,
+  },
+
+  'effort-explore': {
+    name: 'effort-explore',
+    description: 'Manage a durable Effort through natural-language exploration, status reporting, continuation, and confirmed closure.',
+    content: `---
+name: effort-explore
+description: Manage a durable Effort through natural-language exploration, status reporting, continuation, and confirmed closure.
+user-invocable: true
+---
+
+${EFFORT_EXPLORATION_GUIDANCE}`,
   },
 
   'task-explore': {
@@ -1496,6 +1577,7 @@ export function init(cwd, { fs, path, log }) {
   log.info(`\nTask workflow initialized. Recommended flows:
   explore: project-explore
   fast:  task-fast
+  effort: effort-explore (large or uncertain work)
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
@@ -1521,6 +1603,7 @@ export function refresh(cwd, { fs, path, log }) {
   log.info(`\nTask workflow refreshed. Managed skills reinstalled:
   explore: project-explore
   fast:  task-fast
+  effort: effort-explore (large or uncertain work)
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
@@ -1552,6 +1635,8 @@ export function doctor(cwd, { fs, path, log }) {
     TASK_ARCHIVE_DIR,
     BUG_ACTIVE_DIR,
     BUG_ARCHIVE_DIR,
+    EFFORT_ACTIVE_DIR,
+    EFFORT_ARCHIVE_DIR,
     '.ai/decisions',
   ];
 

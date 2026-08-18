@@ -26,6 +26,7 @@ task init
 .ai/
 ├── tasks/active and tasks/archive
 ├── bugs/active and bugs/archive
+├── efforts/active and efforts/archive
 └── decisions/decisions.md
 ```
 
@@ -37,6 +38,7 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 | --- | --- |
 | Understand the project | `project-explore` |
 | Small, unambiguous change | `task-fast` |
+| Large or uncertain request | `effort-explore` |
 | Non-trivial new or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
 | Non-trivial bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
 | Abandon an attempt | `task-cancel` or `bug-cancel` |
@@ -44,6 +46,8 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`
 Every task and bug entry starts with an evidence-based direct-completion check. When the requested behavior is explicit, the correction is a trivial narrow patch, project conventions determine the approach, and focused validation is available, the skill completes and verifies the work in the same invocation without creating a task, bug, or decision artifact. `task-fast` automatically continues with full task or bug exploration when that check does not qualify; it does not rely on the user's estimate that the work is small.
 
 `task-explore` and `bug-explore` use the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) as the methodological foundation for decision-driven exploration, not as a runtime dependency. Non-direct exploration maps decisions as a tree and asks the independent frontier in rounds, with a recommendation for each question.
+
+`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort. Ask to continue it, check its status, or close it; closing always requires confirmation and preserves the archived record. It does not create a Spec or Task automatically.
 
 ## Decision Memory
 
@@ -108,7 +112,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
+`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
 
 ## License
 

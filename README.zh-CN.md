@@ -26,6 +26,7 @@ task init
 .ai/
 ├── tasks/active 和 tasks/archive
 ├── bugs/active 和 bugs/archive
+├── efforts/active 和 efforts/archive
 └── decisions/decisions.md
 ```
 
@@ -37,6 +38,7 @@ task init
 | --- | --- |
 | 理解项目 | `project-explore` |
 | 小且无歧义的改动 | `task-fast` |
+| 大型或不确定的请求 | `effort-explore` |
 | 非简单的新增或修改行为 | `task-explore` -> `task-implement` -> 可选 `task-audit` |
 | 非简单的缺陷修复 | `bug-explore` -> `bug-fix` -> 可选 `bug-audit` |
 | 放弃尝试 | `task-cancel` 或 `bug-cancel` |
@@ -44,6 +46,8 @@ task init
 每个任务和缺陷入口都会先做基于证据的直接完成检查：当目标明确、改动是真正窄小的补丁、项目惯例足以决定实现方式，且可进行聚焦验证时，技能会在当前调用内完成并验证，不创建 task、bug 或 decision 记录。若检查不通过，`task-fast` 会在同一次调用内自动进入完整的 task 或 bug 探索，而不依赖用户对任务是否简单的判断。
 
 `task-explore` 与 `bug-explore` 采用 `grilling`（Grill Me）协议作为以决策驱动探索的方法论基础，该原语内置自 [Matt Pocock 的 skills collection](https://github.com/mattpocock/skills.git)，但不作为运行时依赖。非直接完成的探索会将决策组织为树，并按轮次提出当前所有互不依赖的问题，同时给出每题建议。
+
+`effort-explore` 用自然语言管理大型或不确定的请求。它将未决决策和当前 frontier 记录在一个可恢复的 Effort 中；可以要求继续、查询状态或关闭。关闭总是需要确认，并会保留归档记录；它不会自动创建 Spec 或 Task。
 
 ## 决策沉淀
 
@@ -108,7 +112,7 @@ task doctor
 task refresh
 ```
 
-`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。
+`task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/efforts`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。
 
 ## 许可证
 

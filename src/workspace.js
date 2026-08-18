@@ -5,6 +5,8 @@ const TASK_ACTIVE_DIR = '.ai/tasks/active';
 const TASK_ARCHIVE_DIR = '.ai/tasks/archive';
 const BUG_ACTIVE_DIR = '.ai/bugs/active';
 const BUG_ARCHIVE_DIR = '.ai/bugs/archive';
+const EFFORT_ACTIVE_DIR = '.ai/efforts/active';
+const EFFORT_ARCHIVE_DIR = '.ai/efforts/archive';
 const DECISIONS_FILE = '.ai/decisions/decisions.md';
 const WORKSPACE_FILE = 'workspace.yaml';
 const WORKSPACE_LOCAL_FILE = 'workspace.local.yaml';
@@ -19,6 +21,8 @@ export const WORKSPACE_CONSTANTS = {
   TASK_ARCHIVE_DIR,
   BUG_ACTIVE_DIR,
   BUG_ARCHIVE_DIR,
+  EFFORT_ACTIVE_DIR,
+  EFFORT_ARCHIVE_DIR,
   DECISIONS_FILE,
   WORKSPACE_FILE,
   WORKSPACE_LOCAL_FILE,
@@ -59,6 +63,8 @@ export function ensureWorkflowState(fs, path, cwd, log) {
     TASK_ARCHIVE_DIR,
     BUG_ACTIVE_DIR,
     BUG_ARCHIVE_DIR,
+    EFFORT_ACTIVE_DIR,
+    EFFORT_ARCHIVE_DIR,
     '.ai/decisions',
   ];
 
