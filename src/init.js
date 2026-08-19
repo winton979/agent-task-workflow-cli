@@ -177,6 +177,8 @@ Use Direct Completion only when all of these are true:
 * a focused validation can demonstrate the result
 * for a reported defect, evidence identifies the faulty behavior and the local correction
 
+Direct Completion is a proof obligation, not a confidence score. Establish the absence of material ambiguity from the request, repository evidence, and applicable decisions. Any ambiguity that cannot be ruled out is an unresolved decision; do not use Direct Completion based on an unverified assumption.
+
 For Direct Completion, apply the smallest correct change, run focused validation, and report the outcome in the current response. Reading a relevant existing decision does not require an artifact. Do not create, update, or require a task, bug, or decision artifact.`;
 
 const TASK_EXPLORATION_WORKFLOW_GUIDANCE = `Full Task Exploration
@@ -356,6 +358,8 @@ state: open
 
 # Known Constraints
 
+# Risks
+
 # Open Unknowns
 
 # Out of Scope
@@ -376,7 +380,7 @@ Interpret the user's natural-language request as one of: create an Effort, conti
 1. For a new Effort, establish its Destination and record only confirmed context, decisions, constraints, current frontier, unknowns, and scope boundaries. Apply Evidence Discipline before recording material content. Use the Grilling protocol for material user decisions. Do not treat a hypothesis or an exploration finding as a Confirmed Decision.
 2. For every request about an existing Effort, use a user-specified name or path. Without one, proceed only when exactly one open record is an unambiguous match. When there are multiple plausible Efforts, list the candidates and ask the user to select one; never choose by recency.
 3. When asked for status, read the entire record selected under the previous rule and report its Destination, Current Frontier, Open Unknowns, confirmed decisions relevant to the next action, and the derived condition:
-   * ready when no material current frontier or open unknown remains
+   * ready when no current frontier item or open unknown can still materially alter the Destination, scope, constraints, Requirements, Acceptance Criteria, or Verification Boundaries; residual uncertainty is allowed only when it does not affect that contract or is a recorded non-blocking Risk that needs no decision before implementation
    * blocked when every current frontier item is an external prerequisite the agent cannot advance
    * exploring otherwise
    When the Effort has a confirmed Spec Record, also report its revision, any pending Spec Proposal, and generated active Tasks grouped as ready, dependency-blocked, or requiring resolution by the latest Task Graph. These are natural-language conclusions, not persisted states. Leaving the conversation pauses an open Effort without changing its record.
@@ -393,6 +397,10 @@ Before adding or changing a material Context entry, Known Constraint, Confirmed 
 2. Record repository-observable facts under # Evidence Ledger / ## Observed Facts with concise source references. Record an evidence-backed explanation only under ## Inferred Rationale and label it as an inference. Record material conflicting evidence under ## Evidence Conflicts.
 3. Treat an unresolved material conflict or unsupported assumption as a Current Frontier item or Open Unknown. Never convert an inference, hypothesis, or observed fact into a Confirmed Decision.
 4. Put a material user-owned choice in # Confirmed Decisions only after the user explicitly confirms it. Include the relevant evidence or decision context concisely so later sessions can distinguish the outcome from its basis.
+
+Readiness
+
+Do not keep an Effort exploring merely because uncertainty remains. An unresolved item is material when settling it could alter the Destination, scope, constraints, Requirements, Acceptance Criteria, or Verification Boundaries of the eventual Spec. A remaining item that is not material may stay documented. A remaining material risk may be recorded under # Risks only when its impact is explicit and no decision about it is required before implementation; otherwise it remains a Current Frontier item or Open Unknown.
 
 Glossary Check
 
@@ -441,12 +449,12 @@ Spec Proposal and Spec Record
 2. For an existing Spec Record, any material change to Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks is a next Spec Proposal retained in the open Effort. The current confirmed Spec remains the only source contract until confirmation.
 3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, stable Acceptance Criterion IDs, and Verification Boundaries. Requirements describe observable capability; Acceptance Criteria describe observable evidence. Verification Boundaries must map every Acceptance Criterion ID to one boundary: the highest observable seam at which its outcome can be shown without asserting implementation details.
 4. Confirming a Spec Proposal requires clear user intent. On confirmation, write or update exactly one Markdown Spec Record in .ai/specs/. Use YAML frontmatter with its source Effort path and integer revision. Keep concise # Revisions history in the same file; Git history preserves prior text. Remove the confirmed proposal from the Effort and append a concise Session History entry.
-5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Verification Boundaries, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports.
+5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Verification Boundaries, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports. The sections through # Risks are the Spec contract. # Revisions, # Current Task Graph, and # Impact Reports are co-located workflow management state; they must not redefine the confirmed contract.
 6. Write files only after the user confirms. Do not automatically stage or commit them. Stop after displaying an unconfirmed Spec Proposal; do not infer confirmation from a vague request to continue.
 
 Internal Decomposition and Task Graph
 
-After a Spec Proposal is confirmed, internally derive a Task Graph and show it before creating Task Briefs. For every proposed Task show:
+After a Spec Proposal is confirmed, internally derive a Task Graph, the confirmed Spec's execution projection, and show it before creating Task Briefs. For every proposed Task show:
 
 * an immutable Task ID and concise goal
 * owned Requirement ID and Acceptance Criterion ID lists
@@ -463,6 +471,12 @@ Before showing a Task Graph, validate that it is complete and coherent:
 * Task IDs are unique, and every depends_on reference resolves within the graph
 * dependencies are true blockers, not preferred order, and form no cycle
 * each Task is independently executable once its direct dependencies complete
+
+Task Graph Review Feedback
+
+Feedback about Task grouping, ownership allocation, Verification Owner assignment, or true dependencies is Task Graph feedback. Re-derive and show the complete candidate graph again; Task Graph confirmation never modifies the confirmed Spec.
+
+Feedback that changes Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks is Spec feedback. Retain it as the next Spec Proposal and do not confirm or create a Task Graph until that proposal is explicitly confirmed.
 
 Task Slice Rules
 
@@ -491,8 +505,9 @@ Spec Revisions and Task Compatibility
 
 When confirming a later Spec revision, first create an Impact Report and candidate Task Graph. Compare existing generated Task IDs to the candidate graph:
 
-* retain a compatible Task ID when its goal, owned source conditions, Acceptance Criterion ID -> Verification Boundary mappings, and blockers still match
-* allocate a new Task ID for new or materially changed work
+* Task ID is an execution-semantic identity, not a file-content identity; editorial wording and equivalent validation-command improvements alone do not require a new ID
+* retain a compatible Task ID only when its goal, owned Requirement and Acceptance Criterion IDs, Verification Owner responsibility, Acceptance Criterion ID -> Verification Boundary mappings, source constraints, and true blockers still match
+* allocate a new Task ID when any of those execution semantics changes
 * preserve an incompatible Task Brief without editing, deleting, cancelling, archiving, or automatically replacing it
 
 Record the accepted graph and compatibility result in the Spec Record. A later task-implement invocation may run only a generated Task ID that remains compatible with this latest graph. Show incompatible active Tasks as requiring resolution in Effort status.

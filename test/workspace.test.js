@@ -87,10 +87,13 @@ test('init installs one natural-language effort exploration skill for both provi
     assert.match(skill, /For every request about an existing Effort/);
     assert.match(skill, /Evidence Discipline/);
     assert.match(skill, /# Evidence Ledger/);
+    assert.match(skill, /# Risks/);
     assert.match(skill, /## Observed Facts/);
     assert.match(skill, /## Inferred Rationale/);
     assert.match(skill, /## Evidence Conflicts/);
     assert.match(skill, /Never convert an inference, hypothesis, or observed fact into a Confirmed Decision/);
+    assert.match(skill, /An unresolved item is material when settling it could alter/);
+    assert.match(skill, /recorded non-blocking Risk/);
     assert.match(skill, /Optional Project Glossary/);
     assert.match(skill, /CONTEXT\.md.*optional, single glossary/);
     assert.match(skill, /Glossary Check/);
@@ -123,6 +126,7 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
     assert.match(effortSpec, /\.ai\/specs\//);
     assert.match(effortSpec, /explicit confirmation/);
     assert.match(effortSpec, /Task Graph/);
+    assert.match(effortSpec, /execution projection/);
     assert.match(effortSpec, /Requirement ID/);
     assert.match(effortSpec, /Acceptance Criterion ID/);
     assert.match(effortSpec, /Verification Owner/);
@@ -142,7 +146,9 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
     assert.match(effortSpec, /Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks/);
     assert.match(effortSpec, /Impact Report/);
     assert.match(effortSpec, /Task Compatibility/);
-    assert.match(effortSpec, /owned source conditions, Acceptance Criterion ID -> Verification Boundary mappings, and blockers still match/);
+    assert.match(effortSpec, /Task Graph confirmation never modifies the confirmed Spec/);
+    assert.match(effortSpec, /Task ID is an execution-semantic identity/);
+    assert.match(effortSpec, /owned Requirement and Acceptance Criterion IDs, Verification Owner responsibility/);
     assert.match(effortSpec, /automatically stage or commit/);
     assert.doesNotMatch(effortSpec, /task-decompose/);
 
@@ -257,6 +263,8 @@ test('init installs adaptive direct completion and frontier grilling without pla
     assert.match(taskFast, /Direct Completion Check/);
     assert.match(taskFast, /A user's claim that work is simple is a lead, not sufficient evidence/);
     assert.match(taskFast, /trivial, narrow patch, not merely a local or single-module implementation/);
+    assert.match(taskFast, /Direct Completion is a proof obligation, not a confidence score/);
+    assert.match(taskFast, /Any ambiguity that cannot be ruled out is an unresolved decision/);
     assert.match(taskFast, /active decisions that clearly apply to the changed area/);
     assert.match(taskFast, /Select exactly one escalation route/);
     assert.match(taskFast, /do not create or update an artifact for the unselected route/);

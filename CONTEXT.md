@@ -13,7 +13,7 @@ A bounded, independently verifiable execution contract for implementing an alrea
 _Avoid_: effort, project
 
 **Spec**:
-A settled contract that describes the desired behavior, scope, constraints, and acceptance conditions of an Effort before it is decomposed into Tasks.
+A settled behavioral contract that describes the desired behavior, scope, constraints, and acceptance conditions of an Effort before it is decomposed into Tasks. It answers what must be true; it does not include Task Graph or Impact Report management state.
 _Avoid_: task brief, plan
 
 **Spec Proposal**:
@@ -21,7 +21,7 @@ A resumable candidate for a Spec retained within an open Effort until the user c
 _Avoid_: draft task, unconfirmed spec record
 
 **Spec Record**:
-A version-controlled, confirmed materialization of a ready Effort that becomes the source contract for later Task decomposition. It is not an active Task artifact.
+A version-controlled, confirmed materialization of a ready Effort that becomes the source contract for later Task decomposition. It co-locates that contract with workflow management state for locality; the latter is not part of the contract. It is not an active Task artifact.
 _Avoid_: task brief, draft task
 
 **Spec Revision**:
@@ -41,11 +41,11 @@ The internal phase that derives proposed Task Briefs, their requirement coverage
 _Avoid_: task planning command, independent task workflow
 
 **Task Graph**:
-The complete set of proposed Tasks produced by a Decomposition, including their owned Spec conditions and true blocking dependencies. It is reviewed as one coherent proposal before Task Briefs are created.
+The complete execution projection of a confirmed Spec produced by a Decomposition. It partitions the contract into proposed Tasks with owned Spec conditions and true blocking dependencies, and is reviewed as one coherent proposal before Task Briefs are created.
 _Avoid_: task list, implementation order
 
 **Task ID**:
-An immutable identifier assigned to a generated Task Brief and used to resolve Task Graph relationships across active and archived locations. It is distinct from the Brief's mutable filename and is retained when a later Decomposition still matches that Task.
+An immutable identifier assigned to a generated Task Brief and used to resolve Task Graph relationships across active and archived locations. It identifies execution semantics, not file content: it is retained only when a later Decomposition preserves the Task's goal, owned conditions, verification responsibility and mappings, constraints, and true blockers. It is distinct from the Brief's mutable filename.
 _Avoid_: task filename, task title
 
 **Execution Gate**:
@@ -79,6 +79,10 @@ _Avoid_: spec
 **Effort Record State**:
 The only persisted lifecycle marker of an Effort: `open` while it can be resumed and `closed` once the user has explicitly ended it. An explicit reopening returns a closed record to `open`; readiness, blocking, and pause are derived from the record's current content rather than stored states.
 _Avoid_: task status, execution status
+
+**Effort Readiness**:
+The derived condition in which no unresolved item can materially alter the Spec contract. Residual uncertainty is allowed only when it does not affect that contract or is a recorded non-blocking Risk that needs no decision before implementation.
+_Avoid_: all questions answered, zero uncertainty
 
 **Project Glossary**:
 An optional `CONTEXT.md` at the workflow state root that defines canonical project-specific terms shared by managed workflows. It contains concise concept definitions and avoided synonyms, not Specs, decision entries, evidence, or session history.

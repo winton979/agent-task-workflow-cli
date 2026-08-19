@@ -45,15 +45,15 @@ task init
 | 非简单的缺陷修复 | `bug-explore` -> `bug-fix` -> 可选 `bug-audit` |
 | 放弃尝试 | `task-cancel` 或 `bug-cancel` |
 
-每个任务和缺陷入口都会先做基于证据的直接完成检查：当目标明确、改动是真正窄小的补丁、项目惯例足以决定实现方式，且可进行聚焦验证时，技能会在当前调用内完成并验证，不创建 task、bug 或 decision 记录。若检查不通过，`task-fast` 会在同一次调用内自动进入完整的 task 或 bug 探索，而不依赖用户对任务是否简单的判断。
+每个任务和缺陷入口都会先做基于证据的直接完成检查：当目标明确、改动是真正窄小的补丁、项目惯例足以决定实现方式，且可进行聚焦验证时，技能会在当前调用内完成并验证，不创建 task、bug 或 decision 记录。Direct Completion 是 proof obligation，不是 agent 的 confidence score：无法由请求、仓库证据和适用 decision 排除的歧义，必须进入探索。若检查不通过，`task-fast` 会在同一次调用内自动进入完整的 task 或 bug 探索，而不依赖用户对任务是否简单的判断。
 
 `task-explore` 与 `bug-explore` 采用 `grilling`（Grill Me）协议作为以决策驱动探索的方法论基础，该原语内置自 [Matt Pocock 的 skills collection](https://github.com/mattpocock/skills.git)，但不作为运行时依赖。非直接完成的探索会将决策组织为树，并按轮次提出当前所有互不依赖的问题，同时给出每题建议。
 
-`effort-explore` 用自然语言管理大型或不确定的请求。它将未决决策和当前 frontier 记录在一个可恢复的 Effort 中，同时将已观察事实、推断理由和证据冲突与用户确认的决策分开保存；可以要求继续、查询状态、关闭或显式重新打开。关闭总是需要确认，并会保留归档记录。
+`effort-explore` 用自然语言管理大型或不确定的请求。它将未决决策和当前 frontier 记录在一个可恢复的 Effort 中，同时将已观察事实、推断理由和证据冲突与用户确认的决策分开保存。当没有未决项能实质改变 Spec contract 时，Effort 才 ready；剩余不确定性必须与 contract 无关，或作为无需在实现前决策的 non-blocking Risk 记录。可以要求继续、查询状态、关闭或显式重新打开。关闭总是需要确认，并会保留归档记录。
 
 `CONTEXT.md` 是工作流状态根目录下可选的单一词汇表。`task init` 不会创建它。当重要的项目术语含义模糊、与词汇表或代码冲突，或成为跨任务稳定概念时，`effort-explore` 会提出精简的词汇表修改，并等待明确确认。它绝不将词汇表当作 Spec、决策日志或会话记录。
 
-`effort-spec` 将 ready 且 open 的 Effort 转为可恢复的 Spec Proposal。用户显式确认 Spec 后，它会在 `.ai/specs/` 写入受版本控制的 Spec Record，并在内部展示任务图；第二次确认才会一次性创建全部生成型 Task Brief。每个验收条件都会指定最高实用的 Verification Boundary，Task 通常交付可独立观察的端到端行为；广泛机械式重构则使用显式的 expand-migrate-contract 序列。生成型 Task 保留来源条件追溯、真实依赖门禁和完成证据；既有 Task 与 Bug 流程保持不变。
+`effort-spec` 将 ready 且 open 的 Effort 转为可恢复的 Spec Proposal。用户显式确认 Spec 后，它会在 `.ai/specs/` 写入受版本控制的 Spec Record，并在内部展示作为 contract execution projection 的任务图；第二次确认才会一次性创建全部生成型 Task Brief。任务图反馈可以调整分组、归属或真实依赖，但不能改变已确认的 Spec；contract 变更必须回到 Spec Proposal。每个验收条件都会指定最高实用的 Verification Boundary，Task 通常交付可独立观察的端到端行为；广泛机械式重构则使用显式的 expand-migrate-contract 序列。生成型 Task 保留来源条件追溯、真实依赖门禁和完成证据；既有 Task 与 Bug 流程保持不变。
 
 对于不符合直接完成条件的 Bug，`bug-explore` 会先建立能捕捉到原问题的、已脱敏的诊断循环，然后才能确认根因或产出 `BUG_READY`。`bug-fix` 复用该循环作为回归证据，并在归档前移除临时诊断插桩。
 
