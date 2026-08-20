@@ -20,10 +20,27 @@ function initializeGitRepository(directory) {
   execFileSync('git', ['init', '--quiet', directory]);
 }
 
+function createTemporaryHome(t) {
+  const home = mkdtempSync(path.join(tmpdir(), 'task-cli-home-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  return home;
+}
+
 function runTask(cwd, ...args) {
+  let home;
+  const last = args[args.length - 1];
+  if (last && typeof last === 'object' && !Array.isArray(last)) {
+    home = args.pop().home;
+  }
+  const env = { ...process.env };
+  if (home) {
+    env.HOME = home;
+    env.USERPROFILE = home;
+  }
   return spawnSync(process.execPath, [taskBin, ...args], {
     cwd,
     encoding: 'utf-8',
+    env,
   });
 }
 
@@ -33,6 +50,7 @@ function output(result) {
 
 test('init keeps the existing single-project workflow unchanged', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const result = runTask(project, 'init');
@@ -42,6 +60,8 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
   assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'active')), true);
   assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'archive')), true);
   assert.equal(existsSync(path.join(project, '.ai', 'specs')), true);
+  assert.equal(existsSync(path.join(project, '.claude')), false);
+  assert.equal(existsSync(path.join(project, '.codex')), false);
   assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
   assert.equal(existsSync(path.join(project, 'workspace.yaml')), false);
   assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /workspace\.local\.yaml/);
@@ -59,7 +79,7 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
     { stdio: 'ignore' }
   ));
 
-  const doctorResult = runTask(project, 'doctor');
+  const doctorResult = runTask(project, 'doctor', { home });
   assert.equal(doctorResult.status, 0, output(doctorResult));
   assert.match(output(doctorResult), /\.ai\/efforts\/active - present/);
   assert.match(output(doctorResult), /\.ai\/efforts\/archive - present/);
@@ -67,15 +87,20 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
   assert.doesNotMatch(output(doctorResult), /workspace\.yaml/);
 });
 
-test('init installs one natural-language effort exploration skill for both providers', (t) => {
+test('skill install provides one natural-language effort exploration skill for both providers', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
-    const skillPath = path.join(project, skillRoot, 'skills', 'effort-explore', 'SKILL.md');
+    const skillPath = path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md');
     const skill = readFileSync(skillPath, 'utf-8');
 
     assert.match(skill, /name: effort-explore/);
@@ -108,15 +133,20 @@ test('init installs one natural-language effort exploration skill for both provi
   }
 });
 
-test('init installs the confirmed Effort-to-Spec Task Graph workflow for both providers', (t) => {
+test('skill install provides the confirmed Effort-to-Spec Task Graph workflow for both providers', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const skillsDirectory = path.join(home, skillRoot, 'skills');
     const effortSpec = readFileSync(path.join(skillsDirectory, 'effort-spec', 'SKILL.md'), 'utf-8');
     const taskImplement = readFileSync(path.join(skillsDirectory, 'task-implement', 'SKILL.md'), 'utf-8');
 
@@ -162,16 +192,21 @@ test('init installs the confirmed Effort-to-Spec Task Graph workflow for both pr
   }
 });
 
-test('init installs evidence-based brief metadata guidance for task and bug workflows', (t) => {
+test('skill install provides evidence-based brief metadata guidance for task and bug workflows', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
     for (const skillName of ['task-fast', 'task-explore', 'bug-explore']) {
-      const skillPath = path.join(project, skillRoot, 'skills', skillName, 'SKILL.md');
+      const skillPath = path.join(home, skillRoot, 'skills', skillName, 'SKILL.md');
       const skill = readFileSync(skillPath, 'utf-8');
       assert.match(skill, /When one or more values exist, YAML frontmatter MUST appear/);
       assert.match(skill, /Do not omit frontmatter merely because some fields have no value/);
@@ -182,15 +217,20 @@ test('init installs evidence-based brief metadata guidance for task and bug work
   }
 });
 
-test('init installs diagnostic feedback-loop and regression-loop rules for bugs', (t) => {
+test('skill install provides diagnostic feedback-loop and regression-loop rules for bugs', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const skillsDirectory = path.join(home, skillRoot, 'skills');
     const bugExplore = readFileSync(path.join(skillsDirectory, 'bug-explore', 'SKILL.md'), 'utf-8');
     const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
 
@@ -204,15 +244,20 @@ test('init installs diagnostic feedback-loop and regression-loop rules for bugs'
   }
 });
 
-test('init installs strict decision memory noise controls', (t) => {
+test('skill install provides strict decision memory noise controls', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const skillsDirectory = path.join(home, skillRoot, 'skills');
     const decisionLog = readFileSync(path.join(skillsDirectory, 'decision-log', 'SKILL.md'), 'utf-8');
     const decisionSweep = readFileSync(path.join(skillsDirectory, 'decision-sweep-weekly', 'SKILL.md'), 'utf-8');
     const decisionCurate = readFileSync(path.join(skillsDirectory, 'decision-curate', 'SKILL.md'), 'utf-8');
@@ -244,15 +289,20 @@ test('init installs strict decision memory noise controls', (t) => {
   }
 });
 
-test('init installs adaptive direct completion and frontier grilling without plan skills', (t) => {
+test('skill install provides adaptive direct completion and frontier grilling without plan skills', (t) => {
   const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   initializeGitRepository(project);
 
   const initResult = runTask(project, 'init');
   assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
 
   for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(project, skillRoot, 'skills');
+    const skillsDirectory = path.join(home, skillRoot, 'skills');
     const taskImplement = readFileSync(path.join(skillsDirectory, 'task-implement', 'SKILL.md'), 'utf-8');
     const bugFix = readFileSync(path.join(skillsDirectory, 'bug-fix', 'SKILL.md'), 'utf-8');
 
@@ -317,44 +367,158 @@ test('init installs adaptive direct completion and frontier grilling without pla
 
   for (const skillRoot of ['.claude', '.codex']) {
     writeFileSync(
-      path.join(project, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
+      path.join(home, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
       'Stale task-fast guidance.\n'
     );
     writeFileSync(
-      path.join(project, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
+      path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
       'Stale effort guidance.\n'
     );
   }
 
-  const refreshResult = runTask(project, 'refresh');
-  assert.equal(refreshResult.status, 0, output(refreshResult));
+  const updateResult = runTask(project, 'skill', 'update', { home });
+  assert.equal(updateResult.status, 0, output(updateResult));
   assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
   for (const skillRoot of ['.claude', '.codex']) {
     const refreshedTaskFast = readFileSync(
-      path.join(project, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
+      path.join(home, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
       'utf-8'
     );
     assert.match(refreshedTaskFast, /Direct Completion Check/);
     assert.match(refreshedTaskFast, /Automatic Escalation/);
     const refreshedEffortExplore = readFileSync(
-      path.join(project, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
+      path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
       'utf-8'
     );
     assert.match(refreshedEffortExplore, /natural-language request/);
     assert.match(refreshedEffortExplore, /state: open/);
     const refreshedEffortSpec = readFileSync(
-      path.join(project, skillRoot, 'skills', 'effort-spec', 'SKILL.md'),
+      path.join(home, skillRoot, 'skills', 'effort-spec', 'SKILL.md'),
       'utf-8'
     );
     assert.match(refreshedEffortSpec, /Task Graph/);
+    assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'task-plan', 'SKILL.md')), false);
+    assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'bug-plan', 'SKILL.md')), false);
   }
-  assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-plan', 'SKILL.md')), false);
-  assert.equal(existsSync(path.join(project, '.claude', 'skills', 'bug-plan', 'SKILL.md')), false);
 
   const helpResult = runTask(project, '--help');
   assert.equal(helpResult.status, 0, output(helpResult));
   assert.match(output(helpResult), /fast: task-fast/);
   assert.doesNotMatch(output(helpResult), /task-plan|bug-plan/);
+});
+
+test('refresh removes legacy project-local managed skills but keeps unrelated custom skills', (t) => {
+  const project = createTemporaryDirectory(t);
+  initializeGitRepository(project);
+  assert.equal(runTask(project, 'init').status, 0);
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    for (const skillName of ['task-fast', 'task-explore', 'task-plan']) {
+      const skillPath = path.join(project, skillRoot, 'skills', skillName, 'SKILL.md');
+      mkdirSync(path.dirname(skillPath), { recursive: true });
+      writeFileSync(skillPath, 'Old project-local managed skill.\n');
+    }
+  }
+  const customSkillPath = path.join(project, '.claude', 'skills', 'my-own-skill', 'SKILL.md');
+  mkdirSync(path.dirname(customSkillPath), { recursive: true });
+  writeFileSync(customSkillPath, 'User skill.\n');
+
+  const refreshResult = runTask(project, 'refresh');
+  assert.equal(refreshResult.status, 0, output(refreshResult));
+  assert.equal(existsSync(path.join(project, '.claude', 'skills', 'task-fast')), false);
+  assert.equal(existsSync(path.join(project, '.codex', 'skills', 'task-plan')), false);
+  assert.equal(existsSync(customSkillPath), true);
+  assert.equal(existsSync(path.join(project, '.claude', 'skills', 'task-explore')), false);
+});
+
+test('skill install validates targets, records config, and updates through recorded targets', (t) => {
+  const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
+  initializeGitRepository(project);
+
+  const missingTarget = runTask(project, 'skill', 'install', { home });
+  assert.notEqual(missingTarget.status, 0);
+  assert.match(output(missingTarget), /skill install requires a target: agents \| claude \| codex/);
+
+  const invalidTarget = runTask(project, 'skill', 'install', 'gemini', { home });
+  assert.notEqual(invalidTarget.status, 0);
+  assert.match(output(invalidTarget), /Unknown skill target "gemini"/);
+
+  const agentsResult = runTask(project, 'skill', 'install', '.agents', { home });
+  assert.equal(agentsResult.status, 0, output(agentsResult));
+  assert.equal(existsSync(path.join(home, '.agents', 'skills', 'task-explore', 'SKILL.md')), true);
+  assert.equal(existsSync(path.join(home, '.agents', 'skills', 'project-explore', 'agents', 'openai.yaml')), false);
+
+  const codexResult = runTask(project, 'skill', 'install', 'codex', { home });
+  assert.equal(codexResult.status, 0, output(codexResult));
+  assert.equal(existsSync(path.join(home, '.codex', 'skills', 'project-explore', 'agents', 'openai.yaml')), true);
+
+  const config = JSON.parse(readFileSync(path.join(home, '.task-cli', 'config.json'), 'utf-8'));
+  assert.deepEqual(config, { skillTargets: ['agents', 'codex'] });
+
+  const emptyHome = createTemporaryHome(t);
+  const updateWithoutTargets = runTask(project, 'skill', 'update', { home: emptyHome });
+  assert.notEqual(updateWithoutTargets.status, 0);
+  assert.match(output(updateWithoutTargets), /No skill targets configured/);
+});
+
+test('skill remove deletes managed global skills and target config while keeping custom skills', (t) => {
+  const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
+  initializeGitRepository(project);
+
+  assert.equal(runTask(project, 'skill', 'install', 'claude', { home }).status, 0);
+  assert.equal(runTask(project, 'skill', 'install', 'codex', { home }).status, 0);
+  const customSkillPath = path.join(home, '.claude', 'skills', 'my-own-skill', 'SKILL.md');
+  mkdirSync(path.dirname(customSkillPath), { recursive: true });
+  writeFileSync(customSkillPath, 'User skill.\n');
+
+  const removeClaudeResult = runTask(project, 'skill', 'remove', 'claude', { home });
+  assert.equal(removeClaudeResult.status, 0, output(removeClaudeResult));
+  assert.equal(existsSync(path.join(home, '.claude', 'skills', 'task-explore')), false);
+  assert.equal(existsSync(path.join(home, '.codex', 'skills', 'task-explore')), true);
+  assert.equal(existsSync(customSkillPath), true);
+  let config = JSON.parse(readFileSync(path.join(home, '.task-cli', 'config.json'), 'utf-8'));
+  assert.deepEqual(config, { skillTargets: ['codex'] });
+
+  const removeAllResult = runTask(project, 'skill', 'remove', { home });
+  assert.equal(removeAllResult.status, 0, output(removeAllResult));
+  assert.equal(existsSync(path.join(home, '.codex', 'skills', 'task-explore')), false);
+  assert.equal(existsSync(path.join(home, '.task-cli', 'config.json')), false);
+
+  const doctorResult = runTask(project, 'doctor', { home });
+  assert.equal(doctorResult.status, 0, output(doctorResult));
+  assert.match(output(doctorResult), /global skills - not installed/);
+
+  const emptyHome = createTemporaryHome(t);
+  const removeWithoutConfig = runTask(project, 'skill', 'remove', { home: emptyHome });
+  assert.notEqual(removeWithoutConfig.status, 0);
+  assert.match(output(removeWithoutConfig), /No skill targets configured/);
+});
+
+test('doctor checks globally installed skills and suggests repair commands', (t) => {
+  const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
+  initializeGitRepository(project);
+  assert.equal(runTask(project, 'init').status, 0);
+
+  const beforeInstall = runTask(project, 'doctor', { home });
+  assert.equal(beforeInstall.status, 0, output(beforeInstall));
+  assert.match(output(beforeInstall), /global skills - not installed, run `task skill install <agents\|claude\|codex>`/);
+  assert.match(output(beforeInstall), /Recommended next step: run `task skill install/);
+
+  assert.equal(runTask(project, 'skill', 'install', 'claude', { home }).status, 0);
+
+  const healthyDoctor = runTask(project, 'doctor', { home });
+  assert.equal(healthyDoctor.status, 0, output(healthyDoctor));
+  assert.match(output(healthyDoctor), /~\/\.claude\/skills\/task-fast - current/);
+  assert.match(output(healthyDoctor), /Task workflow is healthy/);
+
+  writeFileSync(path.join(home, '.claude', 'skills', 'task-fast', 'SKILL.md'), 'Stale guidance.\n');
+  const outdatedDoctor = runTask(project, 'doctor', { home });
+  assert.equal(outdatedDoctor.status, 0, output(outdatedDoctor));
+  assert.match(output(outdatedDoctor), /outdated, run `task skill update`/);
+  assert.match(output(outdatedDoctor), /Recommended next step: run `task skill update`/);
 });
 
 test('workflow documentation describes direct completion and automatic escalation', () => {
@@ -386,9 +550,6 @@ test('add-repo promotes an initialized Git project to a portable workspace', (t)
 
   const initResult = runTask(backend, 'init');
   assert.equal(initResult.status, 0, output(initResult));
-  const staleSkillPath = path.join(backend, '.codex', 'skills', 'task-fast', 'SKILL.md');
-  mkdirSync(path.dirname(staleSkillPath), { recursive: true });
-  writeFileSync(staleSkillPath, 'Old managed skill without workspace support.\n');
 
   const addResult = runTask(
     backend,
@@ -400,7 +561,6 @@ test('add-repo promotes an initialized Git project to a portable workspace', (t)
     'Web application'
   );
   assert.equal(addResult.status, 0, output(addResult));
-  assert.match(readFileSync(staleSkillPath, 'utf-8'), /Workspace Context/);
 
   const manifest = JSON.parse(readFileSync(path.join(backend, 'workspace.yaml'), 'utf-8'));
   assert.deepEqual(manifest, {
@@ -417,8 +577,9 @@ test('add-repo promotes an initialized Git project to a portable workspace', (t)
   assert.match(output(reposResult), /frontend\s+\.\.\/frontend - Web application/);
 });
 
-test('use-context keeps skills at the launch root and routes workflow state to a Git context repository', (t) => {
+test('use-context routes workflow state to a Git context repository while skills stay global', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const launchRoot = path.join(parent, 'workspace');
   const context = path.join(launchRoot, 'agent-context');
   const backend = path.join(launchRoot, 'backend');
@@ -427,6 +588,7 @@ test('use-context keeps skills at the launch root and routes workflow state to a
   initializeGitRepository(backend);
 
   assert.equal(runTask(launchRoot, 'init').status, 0);
+  assert.equal(runTask(launchRoot, 'skill', 'install', 'codex', { home }).status, 0);
   writeFileSync(path.join(launchRoot, '.ai', 'tasks', 'active', 'legacy.md'), '# Legacy root state\n');
   assert.equal(runTask(launchRoot, 'add-repo', 'agent-context', '--id', 'agent-context').status, 0);
   writeFileSync(path.join(context, 'workspace.yaml'), `${JSON.stringify({
@@ -455,14 +617,14 @@ test('use-context keeps skills at the launch root and routes workflow state to a
     { stdio: 'ignore' }
   ));
   assert.equal(readFileSync(path.join(launchRoot, '.ai', 'tasks', 'active', 'legacy.md'), 'utf-8'), '# Legacy root state\n');
-  assert.equal(existsSync(path.join(launchRoot, '.codex', 'skills', 'task-explore', 'SKILL.md')), true);
-  assert.equal(existsSync(path.join(context, '.codex', 'skills')), false);
+  assert.equal(existsSync(path.join(launchRoot, '.codex')), false);
+  assert.equal(existsSync(path.join(context, '.codex')), false);
   for (const skillName of [
     'task-fast', 'effort-explore', 'effort-spec', 'task-explore', 'task-implement', 'task-audit', 'task-cancel',
     'bug-explore', 'bug-fix', 'bug-audit', 'bug-cancel',
     'decision-log', 'decision-sweep-weekly', 'decision-curate',
   ]) {
-    const skill = readFileSync(path.join(launchRoot, '.codex', 'skills', skillName, 'SKILL.md'), 'utf-8');
+    const skill = readFileSync(path.join(home, '.codex', 'skills', skillName, 'SKILL.md'), 'utf-8');
     assert.match(skill, /context_repository/);
   }
 
@@ -473,12 +635,12 @@ test('use-context keeps skills at the launch root and routes workflow state to a
 
   const refreshResult = runTask(launchRoot, 'refresh');
   assert.equal(refreshResult.status, 0, output(refreshResult));
-  assert.equal(existsSync(path.join(launchRoot, '.codex', 'skills', 'task-fast', 'SKILL.md')), true);
+  assert.equal(existsSync(path.join(launchRoot, '.codex')), false);
 
   rmSync(path.join(launchRoot, '.ai'), { recursive: true, force: true });
   const reselectContextResult = runTask(launchRoot, 'use-context', 'agent-context');
   assert.equal(reselectContextResult.status, 0, output(reselectContextResult));
-  const doctorResult = runTask(launchRoot, 'doctor');
+  const doctorResult = runTask(launchRoot, 'doctor', { home });
   assert.equal(doctorResult.status, 0, output(doctorResult));
   assert.match(output(doctorResult), /context\/\.ai - present/);
   assert.match(output(doctorResult), /workspace repository backend - \.\.\/backend/);
@@ -486,6 +648,7 @@ test('use-context keeps skills at the launch root and routes workflow state to a
 
 test('context configuration never falls back to root workflow state when the selected repository is unavailable', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const launchRoot = path.join(parent, 'workspace');
   const context = path.join(launchRoot, 'agent-context');
   initializeGitRepository(launchRoot);
@@ -505,7 +668,7 @@ test('context configuration never falls back to root workflow state when the sel
   assert.match(output(refreshResult), /Configured context repository "agent-context" is invalid/);
   assert.equal(existsSync(path.join(launchRoot, '.ai')), false);
 
-  const doctorResult = runTask(launchRoot, 'doctor');
+  const doctorResult = runTask(launchRoot, 'doctor', { home });
   assert.equal(doctorResult.status, 0, output(doctorResult));
   assert.match(output(doctorResult), /context_repository - Configured context repository "agent-context" is invalid/);
   assert.doesNotMatch(output(doctorResult), /\.ai - present/);
@@ -543,6 +706,7 @@ test('add-repo rejects invalid and duplicate repositories without rewriting the 
 
 test('doctor validates repository paths only when workspace mode is enabled', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const backend = path.join(parent, 'backend');
   const frontend = path.join(parent, 'frontend');
   initializeGitRepository(backend);
@@ -552,19 +716,21 @@ test('doctor validates repository paths only when workspace mode is enabled', (t
   assert.equal(runTask(backend, 'add-repo', '../frontend').status, 0);
   rmSync(frontend, { recursive: true, force: true });
 
-  const result = runTask(backend, 'doctor');
+  const result = runTask(backend, 'doctor', { home });
   assert.equal(result.status, 0, output(result));
   assert.match(output(result), /workspace repository frontend - missing at ..\/frontend/);
 });
 
 test('disabled workspace repositories are skipped and local configuration can re-enable them', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const backend = path.join(parent, 'backend');
   const frontend = path.join(parent, 'frontend');
   initializeGitRepository(backend);
   initializeGitRepository(frontend);
 
   assert.equal(runTask(backend, 'init').status, 0);
+  assert.equal(runTask(backend, 'skill', 'install', 'codex', { home }).status, 0);
   assert.equal(runTask(backend, 'add-repo', '../frontend', '--id', 'frontend').status, 0);
   const manifestPath = path.join(backend, 'workspace.yaml');
   const workspace = JSON.parse(readFileSync(manifestPath, 'utf-8'));
@@ -576,7 +742,7 @@ test('disabled workspace repositories are skipped and local configuration can re
   assert.equal(reposResult.status, 0, output(reposResult));
   assert.match(output(reposResult), /frontend\t..\/frontend \[disabled\]/);
 
-  const disabledDoctorResult = runTask(backend, 'doctor');
+  const disabledDoctorResult = runTask(backend, 'doctor', { home });
   assert.equal(disabledDoctorResult.status, 0, output(disabledDoctorResult));
   assert.match(output(disabledDoctorResult), /workspace repository frontend - disabled/);
   assert.doesNotMatch(output(disabledDoctorResult), /workspace repository frontend - missing/);
@@ -585,12 +751,12 @@ test('disabled workspace repositories are skipped and local configuration can re
     version: 1,
     repositories: { frontend: { disabled: false } },
   }, null, 2)}\n`);
-  const reenabledDoctorResult = runTask(backend, 'doctor');
+  const reenabledDoctorResult = runTask(backend, 'doctor', { home });
   assert.equal(reenabledDoctorResult.status, 0, output(reenabledDoctorResult));
   assert.match(output(reenabledDoctorResult), /workspace repository frontend - missing at ..\/frontend/);
 
   const projectExplore = readFileSync(
-    path.join(backend, '.codex', 'skills', 'project-explore', 'SKILL.md'),
+    path.join(home, '.codex', 'skills', 'project-explore', 'SKILL.md'),
     'utf-8'
   );
   assert.match(projectExplore, /disabled flag is true.*Do not select, inspect, index/);
@@ -649,6 +815,7 @@ test('enable-repo and disable-repo update shared and local repository status', (
 
 test('workspace disabled flags must be boolean', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const backend = path.join(parent, 'backend');
   const frontend = path.join(parent, 'frontend');
   initializeGitRepository(backend);
@@ -661,7 +828,7 @@ test('workspace disabled flags must be boolean', (t) => {
     repositories: { frontend: { disabled: 'true' } },
   }, null, 2)}\n`);
 
-  const result = runTask(backend, 'doctor');
+  const result = runTask(backend, 'doctor', { home });
   assert.equal(result.status, 0, output(result));
   assert.match(output(result), /workspace\.local\.yaml repository disabled flags must be booleans/);
 });
@@ -783,6 +950,7 @@ test('bind-repo refuses a negated or tracked local config', (t) => {
 
 test('doctor reports invalid local workspace bindings', (t) => {
   const parent = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
   const backend = path.join(parent, 'backend');
   const frontend = path.join(parent, 'frontend');
   initializeGitRepository(backend);
@@ -795,7 +963,7 @@ test('doctor reports invalid local workspace bindings', (t) => {
     repositories: { unknown: '../frontend' },
   }, null, 2)}\n`);
 
-  const result = runTask(backend, 'doctor');
+  const result = runTask(backend, 'doctor', { home });
   assert.equal(result.status, 0, output(result));
   assert.match(output(result), /workspace\.local\.yaml - workspace\.local\.yaml contains an unknown repository ID/);
 });

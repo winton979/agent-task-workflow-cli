@@ -20,7 +20,7 @@ volta install @winton979/task-cli
 task init
 ```
 
-`task init` creates the `.ai/` workspace and installs managed skills into `.claude/skills/` and `.codex/skills/`.
+`task init` creates the `.ai/` workspace only. Workflow skills are installed globally per machine with `task skill install <agents|claude|codex>` into `~/.agents/skills/`, `~/.claude/skills/`, or `~/.codex/skills/`; keep them current with `task skill update`.
 
 ```text
 .ai/
@@ -66,13 +66,16 @@ Use `decision-log` for a confirmed constraint. `decision-sweep-weekly` is an on-
 ## Commands
 
 ```bash
-task init        # create workspace and install managed skills
+task init        # create the .ai workspace (project-local)
 task add-repo    # add a Git repository and enable workspace mode
 task use-context # store workflow state in a registered Git repository
 task bind-repo   # override a repository path for the current machine
 task repos       # list configured workspace repositories
-task refresh     # reinstall managed skills without changing .ai content
-task doctor      # check workspace state, skill versions, and gitignore rules
+task refresh     # ensure .ai state and remove legacy project-local skills
+task skill install <agents|claude|codex> # install workflow skills globally
+task skill update [<target> ...]         # update globally installed skills
+task skill remove [<target> ...]         # remove globally installed skills
+task doctor      # check workspace state, global skill versions, and gitignore rules
 task --help
 ```
 
@@ -116,8 +119,10 @@ The first `task add-repo` creates `workspace.yaml`. Use `task bind-repo` for per
 
 ```bash
 npm install -g @winton979/task-cli@latest   # or: volta install @winton979/task-cli
+task skill install <agents|claude|codex>    # first time on this machine
+task skill update                           # later upgrades
 task doctor
-task refresh
+task refresh                                # removes legacy project-local skills
 ```
 
 `task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/specs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.

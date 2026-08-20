@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
 import { createCliLog, parseAddRepoOptions } from './cli-common.js';
-import { addRepo, bindRepo, doctor, init, listRepos, refresh, setRepoDisabled, useContext } from './init.js';
+import { addRepo, bindRepo, doctor, init, installGlobalSkills, listRepos, refresh, removeGlobalSkills, setRepoDisabled, updateGlobalSkills, useContext } from './init.js';
 
 const cwd = process.cwd();
 const cmd = process.argv[2];
@@ -14,7 +14,7 @@ function showHelp() {
 task - Lightweight AI-assisted task workflow
 
 Usage:
-  task init     Initialize task workflow in current directory
+  task init     Initialize the .ai workflow state in current directory
   task add-repo <path> [--id <id>] [--description <text>]
                 Add a Git repository to the current workflow workspace
   task use-context <id>
@@ -26,11 +26,17 @@ Usage:
   task disable-repo <id> [--local]
                 Exclude a workspace repository from routine development
   task repos    List repositories in the current workflow workspace
-  task refresh  Reinstall task-cli managed workflow skills
-  task doctor   Check workflow setup and skill freshness
+  task refresh  Ensure .ai state and remove legacy project-local skills
+  task skill install <agents|claude|codex>
+                Install workflow skills into the global target directory
+  task skill update [<target> ...]
+                Update globally installed workflow skills
+  task skill remove [<target> ...]
+                Remove globally installed workflow skills
+  task doctor   Check workflow setup and global skill freshness
   task --help   Show this help
 
-Recommended flows after init:
+Recommended flows after init (requires "task skill install <agents|claude|codex>" once per machine):
   explore: project-explore
   fast: task-fast
   task: task-explore -> task-implement -> task-audit (optional, risk-triggered)
@@ -95,6 +101,23 @@ try {
     case 'repos':
       listRepos(cwd, { fs, path, log });
       break;
+    case 'skill': {
+      const subcommand = process.argv[3];
+      if (subcommand === 'install') {
+        const target = process.argv[4];
+        if (!target || target.startsWith('--')) {
+          throw new Error('skill install requires a target: agents | claude | codex.');
+        }
+        installGlobalSkills(target, { fs, path, log });
+      } else if (subcommand === 'update') {
+        updateGlobalSkills(process.argv.slice(4).filter((arg) => !arg.startsWith('--')), { fs, path, log });
+      } else if (subcommand === 'remove') {
+        removeGlobalSkills(process.argv.slice(4).filter((arg) => !arg.startsWith('--')), { fs, path, log });
+      } else {
+        throw new Error('Usage: task skill install <agents|claude|codex> | task skill update [<target> ...] | task skill remove [<target> ...]');
+      }
+      break;
+    }
     case 'refresh':
       refresh(cwd, { fs, path, log });
       break;

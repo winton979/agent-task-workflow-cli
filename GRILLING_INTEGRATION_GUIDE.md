@@ -79,18 +79,18 @@
 
 ### 生成文件与文档
 
-`src/init.js` 是技能模板的源码。修改后通过 `task refresh` 同步：
+`src/init.js` 是技能模板的源码。修改后通过 `task skill update` 同步到全局安装目录（`task skill install <agents|claude|codex>` 安装）：
 
-* `.claude/skills/task-explore/SKILL.md`
-* `.claude/skills/bug-explore/SKILL.md`
-* `.claude/skills/task-fast/SKILL.md`
-* `.codex/skills/task-fast/SKILL.md`
-* `.codex/skills/task-explore/SKILL.md`
-* `.codex/skills/bug-explore/SKILL.md`
-* `.claude/skills/task-implement/SKILL.md`
-* `.codex/skills/task-implement/SKILL.md`
-* `.claude/skills/bug-fix/SKILL.md`
-* `.codex/skills/bug-fix/SKILL.md`
+* `~/.claude/skills/task-explore/SKILL.md`
+* `~/.claude/skills/bug-explore/SKILL.md`
+* `~/.claude/skills/task-fast/SKILL.md`
+* `~/.codex/skills/task-fast/SKILL.md`
+* `~/.codex/skills/task-explore/SKILL.md`
+* `~/.codex/skills/bug-explore/SKILL.md`
+* `~/.claude/skills/task-implement/SKILL.md`
+* `~/.codex/skills/task-implement/SKILL.md`
+* `~/.claude/skills/bug-fix/SKILL.md`
+* `~/.codex/skills/bug-fix/SKILL.md`
 
 README 应继续准确说明：
 

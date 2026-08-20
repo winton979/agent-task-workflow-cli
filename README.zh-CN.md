@@ -20,7 +20,7 @@ volta install @winton979/task-cli
 task init
 ```
 
-`task init` 会创建 `.ai/` 工作区，并将托管技能安装到 `.claude/skills/` 和 `.codex/skills/`。
+`task init` 只创建 `.ai/` 工作区。工作流技能按机器全局安装：`task skill install <agents|claude|codex>` 可选安装到 `~/.agents/skills/`、`~/.claude/skills/` 或 `~/.codex/skills/`，之后用 `task skill update` 保持更新。
 
 ```text
 .ai/
@@ -66,13 +66,16 @@ task init
 ## 命令
 
 ```bash
-task init        # 创建工作区并安装托管技能
+task init        # 创建 .ai 工作区（仅项目本地）
 task add-repo    # 添加 Git 仓库并启用工作区模式
 task use-context # 将工作流状态存入已注册的 Git 仓库
 task bind-repo   # 覆盖当前机器上的仓库路径
 task repos       # 列出工作区中配置的仓库
-task refresh     # 重新安装托管技能，不修改 .ai 内容
-task doctor      # 检查工作区状态、技能版本和 gitignore 规则
+task refresh     # 维护 .ai 状态并清理旧版本项目本地技能
+task skill install <agents|claude|codex> # 全局安装工作流技能
+task skill update [<target> ...]         # 更新已全局安装的技能
+task skill remove [<target> ...]         # 删除已全局安装的技能
+task doctor      # 检查工作区状态、全局技能版本和 gitignore 规则
 task --help
 ```
 
@@ -116,8 +119,10 @@ task repos
 
 ```bash
 npm install -g @winton979/task-cli@latest   # 或: volta install @winton979/task-cli
+task skill install <agents|claude|codex>    # 本机首次安装技能
+task skill update                           # 之后的升级
 task doctor
-task refresh
+task refresh                                # 清理旧版本项目本地技能
 ```
 
 `task refresh` 会保留 `.ai/tasks`、`.ai/bugs`、`.ai/efforts`、`.ai/specs`、`.ai/decisions`、`workspace.yaml`、`workspace.local.yaml` 和无关的自定义技能。

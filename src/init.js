@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 import {
   WORKSPACE_CONSTANTS,
   logCheck,
@@ -32,8 +33,13 @@ const {
   WORKSPACE_LOCAL_FILE,
 } = WORKSPACE_CONSTANTS;
 
-const CLAUDE_SKILLS_DIR = '.claude/skills';
-const CODEX_SKILLS_DIR = '.codex/skills';
+const SKILL_TARGETS = {
+  agents: '.agents/skills',
+  claude: '.claude/skills',
+  codex: '.codex/skills',
+};
+const GLOBAL_CONFIG_FILE = '.task-cli/config.json';
+const LEGACY_LOCAL_SKILL_ROOTS = ['.claude/skills', '.codex/skills'];
 const GITIGNORE_BLOCK = [
   '# task workflow',
   '.ai/tasks/active/*.md',
@@ -44,7 +50,7 @@ const GITIGNORE_BLOCK = [
 
 const WORKSPACE_CONTEXT_GUIDANCE = `Workspace Context
 
-Before reading or writing any .ai path, determine the workflow state root. Managed skills are discovered from the launch root, but a launch-root workspace.yaml may declare context_repository. When it does:
+Before reading or writing any .ai path, determine the workflow state root from the launch root. A launch-root workspace.yaml may declare context_repository. When it does:
 
 1. Resolve that repository ID from the launch-root workspace.yaml, honoring launch-root workspace.local.yaml when present.
 2. Verify that its resolved directory exists and is a Git repository root. If it is missing or invalid, stop and report the configuration error; never fall back to a launch-root .ai directory.
@@ -1614,15 +1620,15 @@ const MANAGED_SKILL_NAMES = [
   ...LEGACY_MANAGED_SKILL_NAMES,
 ];
 
-function skillArtifacts(skillRoot, skill) {
+function skillArtifacts(target, skill) {
   const artifacts = [{
     relativePath: 'SKILL.md',
-    content: skillRoot === CODEX_SKILLS_DIR && skill.codexContent
+    content: target !== 'claude' && skill.codexContent
       ? skill.codexContent
       : skill.content,
   }];
 
-  if (skillRoot === CODEX_SKILLS_DIR && skill.codexAgentContent) {
+  if (target === 'codex' && skill.codexAgentContent) {
     artifacts.push({
       relativePath: 'agents/openai.yaml',
       content: skill.codexAgentContent,
@@ -1632,16 +1638,49 @@ function skillArtifacts(skillRoot, skill) {
   return artifacts;
 }
 
-function installSkills(fs, path, cwd, skillRoot, log) {
-  ensureDir(fs, path, cwd, skillRoot, log);
+function resolveSkillTarget(targetName) {
+  const normalized = typeof targetName === 'string' && targetName.startsWith('.')
+    ? targetName.slice(1)
+    : targetName;
+  if (!Object.prototype.hasOwnProperty.call(SKILL_TARGETS, normalized)) {
+    throw new Error(`Unknown skill target "${targetName}". Expected one of: ${Object.keys(SKILL_TARGETS).join(', ')}.`);
+  }
+  return normalized;
+}
+
+function globalConfigPath(path) {
+  return path.join(os.homedir(), GLOBAL_CONFIG_FILE);
+}
+
+function readSkillTargetsConfig(fs, path) {
+  const configPath = globalConfigPath(path);
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return [];
+  }
+  const targets = Array.isArray(parsed.skillTargets) ? parsed.skillTargets : [];
+  return targets.filter((t) => Object.prototype.hasOwnProperty.call(SKILL_TARGETS, t));
+}
+
+function writeSkillTargetsConfig(fs, path, skillTargets) {
+  const configPath = globalConfigPath(path);
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, `${JSON.stringify({ skillTargets }, null, 2)}\n`);
+}
+
+function installSkills(fs, path, baseDir, target, log, labelPrefix = '') {
+  const skillRoot = SKILL_TARGETS[target];
+  ensureDir(fs, path, baseDir, skillRoot, log);
   for (const skill of Object.values(SKILLS)) {
-    const skillDir = path.join(cwd, skillRoot, skill.name);
+    const skillDir = path.join(baseDir, skillRoot, skill.name);
     if (!fs.existsSync(skillDir)) {
       fs.mkdirSync(skillDir, { recursive: true });
     }
 
     let created = false;
-    for (const artifact of skillArtifacts(skillRoot, skill)) {
+    for (const artifact of skillArtifacts(target, skill)) {
       const artifactPath = path.join(skillDir, artifact.relativePath);
       if (fs.existsSync(artifactPath)) {
         continue;
@@ -1652,35 +1691,39 @@ function installSkills(fs, path, cwd, skillRoot, log) {
       created = true;
     }
 
-    const label = `${skillRoot}/${skill.name}`;
+    const label = `${labelPrefix}${skillRoot}/${skill.name}`;
     created ? log.chalk.green(`  ✓ ${label}`) : log.chalk.dim(`  - ${label} (exists)`);
   }
 }
 
-function removeManagedSkills(fs, path, cwd, skillRoot, log) {
-  const rootPath = path.join(cwd, skillRoot);
+function removeManagedSkills(fs, path, baseDir, skillRoot, log, labelPrefix = '') {
+  const rootPath = path.join(baseDir, skillRoot);
   if (!fs.existsSync(rootPath)) {
-    log.chalk.dim(`  - ${skillRoot} (missing)`);
+    log.chalk.dim(`  - ${labelPrefix}${skillRoot} (missing)`);
     return;
   }
 
   for (const skillName of MANAGED_SKILL_NAMES) {
     const skillDir = path.join(rootPath, skillName);
     if (!fs.existsSync(skillDir)) {
-      log.chalk.dim(`  - ${skillRoot}/${skillName} (missing)`);
       continue;
     }
 
     fs.rmSync(skillDir, { recursive: true, force: true });
-    log.chalk.green(`  ✓ removed ${skillRoot}/${skillName}`);
+    log.chalk.green(`  ✓ removed ${labelPrefix}${skillRoot}/${skillName}`);
   }
 }
 
-function reinstallManagedSkills(fs, path, cwd, log) {
-  removeManagedSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
-  removeManagedSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
-  installSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
-  installSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
+function reinstallGlobalSkills(fs, path, target, log) {
+  const homeDir = os.homedir();
+  removeManagedSkills(fs, path, homeDir, SKILL_TARGETS[target], log, '~/');
+  installSkills(fs, path, homeDir, target, log, '~/');
+}
+
+function removeLegacyLocalSkills(fs, path, cwd, log) {
+  for (const skillRoot of LEGACY_LOCAL_SKILL_ROOTS) {
+    removeManagedSkills(fs, path, cwd, skillRoot, log);
+  }
 }
 
 function updateGitignore(fs, path, cwd, log) {
@@ -1717,13 +1760,7 @@ function assertWorkflowInitialized(fs, path, cwd) {
 
 export function addRepo(cwd, repositoryPath, options, { fs, path, log }) {
   assertWorkflowInitialized(fs, path, cwd);
-  return workspaceAddRepo(cwd, repositoryPath, options, {
-    fs, path, log,
-    onWorkspacePromotion: (fs, path, workflowRoot, log) => {
-      log.info('\nRefreshing managed workflow skills for workspace context...');
-      reinstallManagedSkills(fs, path, workflowRoot, log);
-    },
-  });
+  return workspaceAddRepo(cwd, repositoryPath, options, { fs, path, log });
 }
 
 export function useContext(cwd, id, { fs, path, log }) {
@@ -1731,8 +1768,6 @@ export function useContext(cwd, id, { fs, path, log }) {
   return workspaceUseContext(cwd, id, {
     fs, path, log,
     onContextSelected: ({ fs, path, workflowRoot, contextRoot, log }) => {
-      log.info('\nRefreshing managed workflow skills for context routing...');
-      reinstallManagedSkills(fs, path, workflowRoot, log);
       log.info('\nUpdating ignore rules...');
       updateGitignore(fs, path, workflowRoot, log);
       if (contextRoot !== workflowRoot) {
@@ -1756,15 +1791,75 @@ export function listRepos(cwd, { fs, path, log }) {
   return workspaceListRepos(cwd, { fs, path, log });
 }
 
+function resolveSkillTargets(fs, path, targetNames) {
+  const explicit = targetNames.map((name) => resolveSkillTarget(name));
+  if (explicit.length > 0) {
+    return explicit;
+  }
+  const configured = readSkillTargetsConfig(fs, path);
+  if (configured.length === 0) {
+    throw new Error('No skill targets configured. Run `task skill install <agents|claude|codex>` first.');
+  }
+  return configured;
+}
+
+export function installGlobalSkills(targetName, { fs, path, log }) {
+  const target = resolveSkillTarget(targetName);
+  log.info(`Installing workflow skills into ~/${SKILL_TARGETS[target]}...`);
+  reinstallGlobalSkills(fs, path, target, log);
+
+  const skillTargets = readSkillTargetsConfig(fs, path);
+  if (!skillTargets.includes(target)) {
+    writeSkillTargetsConfig(fs, path, [...skillTargets, target]);
+    log.chalk.green(`  ✓ recorded skill target "${target}" in ~/${GLOBAL_CONFIG_FILE}`);
+  }
+
+  log.info('\nGlobal skills installed. Keep them current with `task skill update`.');
+}
+
+export function updateGlobalSkills(targetNames, { fs, path, log }) {
+  const targets = resolveSkillTargets(fs, path, targetNames);
+
+  for (const target of targets) {
+    log.info(`\nUpdating workflow skills in ~/${SKILL_TARGETS[target]}...`);
+    reinstallGlobalSkills(fs, path, target, log);
+  }
+
+  log.info('\nGlobal skills updated.');
+}
+
+export function removeGlobalSkills(targetNames, { fs, path, log }) {
+  const targets = resolveSkillTargets(fs, path, targetNames);
+
+  const homeDir = os.homedir();
+  for (const target of targets) {
+    log.info(`\nRemoving workflow skills from ~/${SKILL_TARGETS[target]}...`);
+    removeManagedSkills(fs, path, homeDir, SKILL_TARGETS[target], log, '~/');
+  }
+
+  const configPath = globalConfigPath(path);
+  if (fs.existsSync(configPath)) {
+    const current = readSkillTargetsConfig(fs, path);
+    const removed = current.filter((target) => targets.includes(target));
+    if (removed.length > 0) {
+      const remaining = current.filter((target) => !targets.includes(target));
+      if (remaining.length > 0) {
+        writeSkillTargetsConfig(fs, path, remaining);
+      } else {
+        fs.rmSync(configPath);
+      }
+      log.chalk.green(`  ✓ removed skill target${removed.length > 1 ? 's' : ''} "${removed.join('", "')}" from ~/${GLOBAL_CONFIG_FILE}`);
+    }
+  }
+
+  log.info('\nGlobal skills removed. Reinstall later with `task skill install <agents|claude|codex>`.');
+}
+
 export function init(cwd, { fs, path, log }) {
   const stateRoot = workflowStateRoot(fs, path, cwd);
 
   log.info('Creating directory structure...');
   ensureWorkflowState(fs, path, stateRoot, log);
-
-  log.info('\nInstalling workflow skills...');
-  installSkills(fs, path, cwd, CLAUDE_SKILLS_DIR, log);
-  installSkills(fs, path, cwd, CODEX_SKILLS_DIR, log);
 
   log.info('\nUpdating ignore rules...');
   updateGitignore(fs, path, cwd, log);
@@ -1780,7 +1875,10 @@ export function init(cwd, { fs, path, log }) {
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
-  sweep: decision-sweep-weekly (on demand)`);
+  sweep: decision-sweep-weekly (on demand)
+
+Skills are installed globally per machine:
+  task skill install <agents|claude|codex>`);
 }
 
 export function refresh(cwd, { fs, path, log }) {
@@ -1789,8 +1887,8 @@ export function refresh(cwd, { fs, path, log }) {
   log.info('Ensuring directory structure...');
   ensureWorkflowState(fs, path, stateRoot, log);
 
-  log.info('\nRefreshing managed workflow skills...');
-  reinstallManagedSkills(fs, path, cwd, log);
+  log.info('\nRemoving project-local managed skills (skills are installed globally now)...');
+  removeLegacyLocalSkills(fs, path, cwd, log);
 
   log.info('\nUpdating ignore rules...');
   updateGitignore(fs, path, cwd, log);
@@ -1798,7 +1896,7 @@ export function refresh(cwd, { fs, path, log }) {
     updateGitignore(fs, path, stateRoot, log);
   }
 
-  log.info(`\nTask workflow refreshed. Managed skills reinstalled:
+  log.info(`\nTask workflow refreshed. Managed skill flows:
   explore: project-explore
   fast:  task-fast
   effort: effort-explore -> effort-spec (ready Effort to reviewed Tasks)
@@ -1806,7 +1904,10 @@ export function refresh(cwd, { fs, path, log }) {
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
   other: decision-log | decision-curate
-  sweep: decision-sweep-weekly (on demand)`);
+  sweep: decision-sweep-weekly (on demand)
+
+Skills are installed globally per machine:
+  task skill install <agents|claude|codex>`);
 }
 
 export function doctor(cwd, { fs, path, log }) {
@@ -1856,39 +1957,55 @@ export function doctor(cwd, { fs, path, log }) {
     logCheck(log, decisionsExists, context ? `context/${DECISIONS_FILE}` : DECISIONS_FILE, decisionsExists ? 'present' : 'missing');
   }
 
-  for (const skillRoot of [CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR]) {
+  let skillsNeedInstall = false;
+  let skillsNeedUpdate = false;
+  const skillTargets = readSkillTargetsConfig(fs, path);
+  const homeDir = os.homedir();
+  if (skillTargets.length === 0) {
+    skillsNeedInstall = true;
+    checks.push(false);
+    logCheck(log, false, 'global skills', 'not installed, run `task skill install <agents|claude|codex>`');
+  }
+
+  for (const target of skillTargets) {
+    const skillRoot = SKILL_TARGETS[target];
     for (const skill of Object.values(SKILLS)) {
-      for (const artifact of skillArtifacts(skillRoot, skill)) {
-        const artifactPath = path.join(cwd, skillRoot, skill.name, artifact.relativePath);
+      for (const artifact of skillArtifacts(target, skill)) {
+        const artifactPath = path.join(homeDir, skillRoot, skill.name, artifact.relativePath);
         const label = artifact.relativePath === 'SKILL.md'
-          ? `${skillRoot}/${skill.name}`
-          : `${skillRoot}/${skill.name}/${artifact.relativePath}`;
+          ? `~/${skillRoot}/${skill.name}`
+          : `~/${skillRoot}/${skill.name}/${artifact.relativePath}`;
         if (!fs.existsSync(artifactPath)) {
+          skillsNeedInstall = true;
           checks.push(false);
-          logCheck(log, false, label, 'missing');
+          logCheck(log, false, label, 'missing, run `task skill install`');
           continue;
         }
 
         const content = fs.readFileSync(artifactPath, 'utf-8');
         const matches = content === artifact.content;
         checks.push(matches);
+        if (!matches) {
+          skillsNeedUpdate = true;
+        }
         logCheck(
           log,
           matches,
           label,
-          matches ? 'current' : 'outdated, run `task refresh`'
+          matches ? 'current' : 'outdated, run `task skill update`'
         );
       }
     }
 
     for (const skillName of LEGACY_MANAGED_SKILL_NAMES) {
-      const legacySkillDir = path.join(cwd, skillRoot, skillName);
+      const legacySkillDir = path.join(homeDir, skillRoot, skillName);
       if (!fs.existsSync(legacySkillDir)) {
         continue;
       }
 
+      skillsNeedUpdate = true;
       checks.push(false);
-      logCheck(log, false, `${skillRoot}/${skillName}`, 'legacy managed skill, run `task refresh`');
+      logCheck(log, false, `~/${skillRoot}/${skillName}`, 'legacy managed skill, run `task skill update`');
     }
   }
 
@@ -1941,5 +2058,11 @@ export function doctor(cwd, { fs, path, log }) {
     return;
   }
 
-  console.log(chalk.yellow('Recommended next step: run `task refresh` to reinstall managed skills and repair setup.'));
+  if (skillsNeedInstall) {
+    console.log(chalk.yellow('Recommended next step: run `task skill install <agents|claude|codex>` to install workflow skills globally.'));
+  } else if (skillsNeedUpdate) {
+    console.log(chalk.yellow('Recommended next step: run `task skill update` to refresh global workflow skills.'));
+  } else {
+    console.log(chalk.yellow('Recommended next step: run `task refresh` to repair workflow setup.'));
+  }
 }
