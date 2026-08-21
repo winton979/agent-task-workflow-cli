@@ -127,6 +127,16 @@ task refresh                                # removes legacy project-local skill
 
 `task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/specs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
 
+## Plugin Packaging
+
+The workflow skills can also be shipped as a standard Claude Code plugin. Both install forms expose the same skill content, generated from the same source.
+
+```bash
+npm run build:plugin   # after every release (version comes from package.json)
+```
+
+This renders the skills into `dist/task-workflow/` and zips them as `dist/task-workflow.zip`. The zip root follows the plugin spec directly (`.claude-plugin/plugin.json` + `skills/`), so install it in Claude Code with `/plugin` -> install from zip. Rebuild and reinstall the zip after each release to update.
+
 ## License
 
 MIT

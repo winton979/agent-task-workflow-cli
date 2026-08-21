@@ -856,7 +856,7 @@ Answer directly. Use only the sections that improve clarity:
 For a broad request, state the interpreted scope before the answer. Omit empty sections. For a simple question, prefer concise prose without headings.
 `;
 
-const SKILLS = {
+export const SKILLS = {
   'project-explore': {
     name: 'project-explore',
     description: PROJECT_EXPLORE_DESCRIPTION,

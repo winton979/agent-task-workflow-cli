@@ -1,4 +1,5 @@
 node_modules
+dist
 
 # task workflow
 .ai/tasks/active/*.md

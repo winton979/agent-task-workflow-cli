@@ -11,6 +11,10 @@
     "multi-repository"
   ],
   "license": "MIT",
+  "author": {
+    "name": "winton979",
+    "url": "https://github.com/winton979"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/winton979/ai-task-cli.git"
@@ -25,6 +29,7 @@
     "workscope": "bin/workscope.js"
   },
   "scripts": {
+    "build:plugin": "node scripts/build-plugin.mjs",
     "test": "node --test"
   },
   "files": [
