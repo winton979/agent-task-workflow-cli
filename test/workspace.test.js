@@ -63,6 +63,7 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
   assert.equal(existsSync(path.join(project, '.claude')), false);
   assert.equal(existsSync(path.join(project, '.codex')), false);
   assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
+  assert.equal(existsSync(path.join(project, 'GLOSSARY.md')), false);
   assert.equal(existsSync(path.join(project, 'workspace.yaml')), false);
   assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /workspace\.local\.yaml/);
   assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /\.ai\/efforts\/active\/\*\.md/);
@@ -120,11 +121,11 @@ test('skill install provides one natural-language effort exploration skill for b
     assert.match(skill, /An unresolved item is material when settling it could alter/);
     assert.match(skill, /recorded non-blocking Risk/);
     assert.match(skill, /Optional Project Glossary/);
-    assert.match(skill, /CONTEXT\.md.*optional, single glossary/);
+    assert.match(skill, /GLOSSARY\.md.*optional, single glossary/);
     assert.match(skill, /Glossary Check/);
     assert.match(skill, /Do not create a glossary or change it just because a word appeared/);
     assert.match(skill, /explicitly confirms the exact proposed edit/);
-    assert.match(skill, /Do not infer \`CONTEXT-MAP\.md\` support/);
+    assert.match(skill, /Do not infer \`GLOSSARY-MAP\.md\` or \`CONTEXT-MAP\.md\` support/);
     assert.match(skill, /# Closure/);
     assert.match(skill, /record the closure reason/);
     assert.match(skill, /explicit confirmation/);
@@ -331,9 +332,6 @@ test('skill install provides adaptive direct completion and frontier grilling wi
     assert.match(taskExplore, /Complete trivial, unambiguous tasks directly/);
     assert.match(taskExplore, /If Direct Completion qualifies, implement and validate it now, then output TASK_DONE/);
     assert.match(taskExplore, /Full Task Exploration/);
-    assert.match(taskExplore, /Work the design tree in rounds/);
-    assert.match(taskExplore, /The frontier is every decision whose prerequisites are settled/);
-    assert.match(taskExplore, /Q1 - \*\*Question title\*\*/);
 
     assert.match(bugExplore, /Fix a verified, local bug directly/);
     assert.match(bugExplore, /If Direct Completion qualifies, fix and validate it now, then output BUG_DONE/);

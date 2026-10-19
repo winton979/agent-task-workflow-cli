@@ -10,6 +10,28 @@
 
 如果用户提供的 `grill-me` 只是转发包装器，例如正文只有 `Run a /grilling session`，该输入并不完整。先索取它所委托的 `grilling` skill 正文；不要把包装器嵌入 Task CLI，否则会重新产生外部依赖。
 
+## 本次同步基线
+
+本次按用户指定的本地上游快照比较，不代表查询远端后确认的最新提交：
+
+* 原基线：`6654f6b60cd9d5be8b54c6fafe44346dabeb3b76`，2026-08-24。
+* 目标：`49dd158d1076134a641b33efb035946536778336`，2026-10-09。
+* `skills/productivity/grill-me/SKILL.md` 在目标快照中只是委托给 `grilling` 的包装器。
+* 权威正文来自 `skills/productivity/grilling/SKILL.md`；完整副本保存在 `test/fixtures/upstream-grilling.md`，供离线测试核对安装产物，不参与运行时读取。
+
+## 提取与融合
+
+| 上游变化 | Task CLI 落点与边界 |
+| --- | --- |
+| Grilling 新增回答“是”即接受推荐；本地旧版曾改写设计树、轮次和事实调查措辞 | 共用 `GRILLING_GUIDANCE` 改为目标快照正文，逐字覆盖 `task-explore`、`bug-explore` 和 `task-fast` 的两条完整升级路径；直接完成和实现阶段不重新做完整访谈。 |
+| `CONTEXT.md` 更名为 `GLOSSARY.md` | 共用工作区指引优先读取状态根目录的 `GLOSSARY.md`，不存在时兼容 `CONTEXT.md`；不自动迁移、合并或扫描多词汇表。`effort-explore` 仍须获得精确修改的明确确认。 |
+| TDD 提议测试 seam 时解释 catches / misses | 融入 `effort-spec` 的 Verification Boundary 提案，让用户确认边界时看见其覆盖与盲区；不为简单实现额外增加 seam 审批。 |
+| 强制测试变红时，证明变异确实生效 | 融入 `bug-fix` 的 Regression Loop：先对 pristine copy 做 diff，再信任红灯；验证真实修复前恢复临时变异。 |
+| Code Review 主动搜索全部仓库规范 | `task-audit` 与 `bug-audit` 共用规范取证指引，包含已有 `CODING_STANDARDS.md`、`CONTRIBUTING.md` 及作用域内指令；发现必须有规则与证据。 |
+| Retro 优先查看已有检查，机械规则交给确定性检查 | 融入审查建议：先检查现有 lint / typecheck / test / CI，避免重复造规则；仅报告与改动实质相关的问题，审查不修改 hook 或 CI。 |
+
+未照搬的部分：上游安装、插件和 issue tracker 文档路由，`implement` 自动提交，`implement-spec` 的集成分支 / PR / worktree 编排，新增 PR、chief-of-staff 等技能，外部工单标签及原生依赖边，教学测验和 bash wizard 模板修复。它们不属于 Task CLI 当前安装模型与本地 brief 工作流；不因此增加 companion skill、工单服务、自动 Git 副作用或无关功能。既有 Task Graph 继续使用本地 Spec / Task 标识和真实依赖门禁。
+
 ## 目标
 
 将最新版 Grilling 原语无损嵌入 Task CLI，让 `task-explore` 和 `bug-explore` 获得相同的访谈行为，同时保持 Task CLI 自包含：
@@ -27,7 +49,7 @@
 * 每个词都可能在调用预训练语义或修复具体失败模式。不要用更长的解释替换高密度措辞。
 * 保留 leading words、语气强度、主语、段落顺序、标点和强调格式。
 * 事实由 Agent 从环境调查；决策由用户作出。不要让 Agent 代替用户回答决策。
-* 一次只问一个问题，给出推荐答案，并等待用户反馈。
+* 一轮询问整个独立 frontier，给出每题推荐答案，并等待用户反馈；依赖尚未解决前提的问题留到下一轮。
 * 确认门是硬边界。在用户确认共同理解前，不执行原语禁止的动作。
 * 不因“看起来更完整”而增加分类、例外、过滤条件或重复约束。新措辞应由已观察到的模型失败驱动。
 
@@ -56,7 +78,7 @@
 * metadata 和 workflow 应保留最新版有意使用的 leading words，例如 `Grill`。
 * Task CLI 特有规则放在原语之外。
 * 只添加完成宿主绑定所必需的解释。
-* 当前唯一绑定是：`For this workflow, "act on it" means creating the brief.`
+* 当前宿主 workflow 将创建 brief 放在共同理解确认之后；无需在原语中插入 Task CLI 的交接规则。
 
 绑定必须引用最新版原语的原词。如果最新版删除或改变 `act on it`，重新判断绑定是否仍需要，并修改外围 workflow；不要修改原语来适配旧绑定。
 
@@ -64,7 +86,7 @@
 
 ### Direct Execution
 
-`task-fast` 和 `task-implement` 的直接执行路径不声称执行完整 Grilling。完整 Grilling 的 `relentlessly about every aspect` 与实现阶段的最小交互目标并不相同。
+`task-fast` 和 `task-implement` 的直接执行路径不声称执行完整 Grilling。完整 Grilling 覆盖每个设计树分支，与实现阶段的最小交互目标并不相同。
 
 直接执行路径应继续保留：
 
@@ -98,7 +120,7 @@ README 应继续准确说明：
 * 它是方法思想来源，不是运行时依赖
 * 完整 Explore 逐字保留正文
 * Task CLI 不要求也不安装 companion skill
-* `task-fast` 和实现阶段的直接执行路径采用较窄的 clarification loop，并通过 proposal gate 或流程路由处理重要决策
+* `task-fast` 的升级路径复用完整 Explore；直接完成及实现阶段保留窄边界，通过既有 proposal gate 或流程路由处理重要决策
 
 不要在 README 中声称 Task CLI 会删除或阻止用户自行安装的其他 skills。
 
@@ -112,7 +134,7 @@ README 应继续准确说明：
 6. 检查 Task CLI 外围绑定是否仍准确。优先修改外围 workflow，不修改上游正文。
 7. 检查 `task-fast`、`task-implement` 的直接执行和 proposal gate 是否需要兼容新版原则；保持实现阶段的窄边界。
 8. 更新 README 中确实发生变化的来源或边界说明，避免重复解释原语。
-9. 运行 `node bin/task.js refresh`，同步 Claude 与 Codex 生成文件。
+9. 在隔离的临时 HOME / USERPROFILE 中运行 `task skill install <agents|claude|codex>` 和 `task skill update`，验证生成文件。`task refresh` 更新项目状态，不更新全局技能；除非用户明确要求，不改写真实 HOME 下的已安装技能。
 10. 完成静态验证、fresh-init 验证、前向测试和独立措辞审查。
 
 若最新版与当前嵌入正文完全相同，不制造格式 churn。只报告无需升级。
@@ -135,8 +157,8 @@ README 应继续准确说明：
 
 * `node --check src/init.js` 通过。
 * 嵌入正文与用户提供的最新版正文一致。比较时可以规范化 checkout 的 CRLF/LF，但内容、标点和段落必须一致。
-* 四个完整 Explore 生成文件中的正文均与最新版一致。
-* Claude 与 Codex 对应生成文件内容一致。
+* 三个安装目标中，`task-explore`、`bug-explore` 及 `task-fast` 两条升级路径的正文均与指定快照一致。
+* Agents、Claude 与 Codex 对应 Explore 生成文件内容一致。
 * `src`、README 和生成技能中不存在旧 `grill-me` 名称、安装命令、探测逻辑或 companion 告警。本说明为了描述禁项，可以保留该历史名称。
 * `node bin/task.js doctor` 全部检查通过。
 * 在全新临时目录运行 `task init` 后，不生成 Grill skill；随后 `task doctor` 通过。
@@ -158,8 +180,9 @@ README 应继续准确说明：
 
 * 先调查环境中可获得的事实
 * 不把可查事实推回用户
-* 一次只提出一个问题
+* 一轮提出整个独立 frontier，依赖未决答案的问题留到下一轮
 * 提供推荐答案
+* 每题回答“是”即接受推荐
 * 不替用户作决策
 * 等待反馈，不越过确认门创建 brief 或实施
 

@@ -62,11 +62,11 @@ Retain the resulting absolute canonical directory as \`workflowStateRoot\`. Ever
 
 Optional Project Glossary
 
-\`<workflowStateRoot>/CONTEXT.md\` is an optional, single glossary of canonical project-specific terms. Do not infer \`CONTEXT-MAP.md\` support or search registered repositories for separate glossaries.
+Use \`<workflowStateRoot>/GLOSSARY.md\` as the optional, single glossary of canonical project-specific terms. If it does not exist, use \`<workflowStateRoot>/CONTEXT.md\` for compatibility. Do not merge the two files or rename an existing glossary automatically. Do not infer \`GLOSSARY-MAP.md\` or \`CONTEXT-MAP.md\` support or search registered repositories for separate glossaries.
 
 * When this file exists and terms relevant to the current work are in question, read it with the relevant project artifacts.
 * A glossary entry defines what one project-specific concept is in one or two sentences and may name avoided synonyms. It is not a Spec, decision log, Evidence Ledger, or implementation diary.
-* \`task init\` and \`task refresh\` never create this file. Only effort-explore may propose an explicit glossary edit.
+* \`task init\` and \`task refresh\` never create either file. Only effort-explore may propose an explicit glossary edit.
 
 * Treat the manifest as an initial context map, not a request to scan every repository.
 * Treat repositories whose resolved disabled flag is true as unavailable for routine development in the current cycle. Do not select, inspect, index, or include them in a working set unless the user explicitly asks about that repository.
@@ -77,23 +77,31 @@ Optional Project Glossary
 
 const GRILLING_GUIDANCE = `Grilling
 
-Interview the user relentlessly until you reach a shared understanding. Model the subject as a design tree: every decision branches into the decisions that depend on it.
+Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Work the design tree in rounds. The frontier is every decision whose prerequisites are settled: the questions that can be asked now without guessing at unanswered decisions. Ask the full frontier in one round, number each question, and give a recommended answer. Wait for the user's answers before the next round.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-Format each question as:
+Format a round like so:
 
 \`\`\`
-Q1 - **Question title**: Question body.
+❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
 
-Recommended: Recommended answer.
+➡️ <your recommended answer>
+
+---
+
+❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+
+➡️ <your recommended answer>
 \`\`\`
 
-Recompute the frontier after every round. A question that depends on another question still open in the current round belongs in a later round.
+Word each question so "yes" accepts your recommended answer.
 
-Find facts in the repository and environment instead of asking the user. Keep questions downstream of pending fact-finding for a later round; ask the remaining independent frontier now. Decisions belong to the user: ask for them and wait.
+Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
-The session is complete only when the frontier is empty and the user confirms the understanding is shared. Do not act on the result before that confirmation.`;
+Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
+
+The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.`;
 
 const DECISIONS_READ_GUIDANCE = `Decision Intake
 
@@ -412,10 +420,10 @@ Glossary Check
 
 Apply this check when an Effort relies on a material domain or workflow term:
 
-1. Read \`<workflowStateRoot>/CONTEXT.md\` when it exists. When a user term conflicts with its canonical language, is ambiguous, or is overloaded, state the conflict and ask which meaning applies. Do not choose a meaning silently.
+1. Select the glossary using Optional Project Glossary above. When a user term conflicts with its canonical language, is ambiguous, or is overloaded, state the conflict and ask which meaning applies. Do not choose a meaning silently.
 2. Cross-check a stated term or relationship against relevant code and evidence. Treat a material mismatch as an Evidence Conflict and a Current Frontier item until it is resolved.
 3. When a newly settled term is project-specific and will repeatedly affect scope, boundaries, names, or behavior across later work, propose the exact concise glossary edit, including any avoided synonym. Do not create a glossary or change it just because a word appeared.
-4. Wait until the user explicitly confirms the exact proposed edit before creating or modifying \`<workflowStateRoot>/CONTEXT.md\`. Keep the Effort's # Confirmed Decisions, Spec, and Evidence Ledger as their own records; refer to canonical terms rather than duplicating their definitions there.
+4. Wait until the user explicitly confirms the exact proposed edit before modifying the selected glossary. If neither glossary exists, propose creating \`<workflowStateRoot>/GLOSSARY.md\`. Keep the Effort's # Confirmed Decisions, Spec, and Evidence Ledger as their own records; refer to canonical terms rather than duplicating their definitions there.
 
 * Read \`.ai/decisions/decisions.md\` when relevant active decisions may constrain the Effort. Preserve them as context; do not duplicate them as new durable decisions.
 * Maintain the Current Frontier as the independent material questions or external prerequisites that can be acted on next. Keep dependent questions out of the frontier until their prerequisites are settled.
@@ -453,7 +461,7 @@ Spec Proposal and Spec Record
 
 1. For a ready Effort without a Spec Record, derive a Spec Proposal and retain it under # Spec Proposal in the open Effort. Show it and stop. A Spec Proposal is resumable but cannot drive a Task Graph.
 2. For an existing Spec Record, any material change to Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks is a next Spec Proposal retained in the open Effort. The current confirmed Spec remains the only source contract until confirmation.
-3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, stable Acceptance Criterion IDs, and Verification Boundaries. Requirements describe observable capability; Acceptance Criteria describe observable evidence. Verification Boundaries must map every Acceptance Criterion ID to one boundary: the highest observable seam at which its outcome can be shown without asserting implementation details.
+3. A Spec Proposal must contain Destination, Context, Constraints, Confirmed Decisions, Out of Scope, Risks, a source Effort path, stable Requirement IDs, stable Acceptance Criterion IDs, and Verification Boundaries. Requirements describe observable capability; Acceptance Criteria describe observable evidence. Verification Boundaries must map every Acceptance Criterion ID to one boundary: the highest observable seam at which its outcome can be shown without asserting implementation details. Give each proposed boundary a one-line note on what it catches and what it misses.
 4. Confirming a Spec Proposal requires clear user intent. On confirmation, write or update exactly one Markdown Spec Record in .ai/specs/. Use YAML frontmatter with its source Effort path and integer revision. Keep concise # Revisions history in the same file; Git history preserves prior text. Remove the confirmed proposal from the Effort and append a concise Session History entry.
 5. The Spec Record includes # Destination, # Context, # Constraints, # Confirmed Decisions, # Requirements, # Acceptance Criteria, # Verification Boundaries, # Out of Scope, # Risks, # Revisions, # Current Task Graph, and # Impact Reports. The sections through # Risks are the Spec contract. # Revisions, # Current Task Graph, and # Impact Reports are co-located workflow management state; they must not redefine the confirmed contract.
 6. Write files only after the user confirms. Do not automatically stage or commit them. Stop after displaying an unconfirmed Spec Proposal; do not infer confirmation from a vague request to continue.
@@ -565,8 +573,15 @@ For a Bug Brief that records a diagnostic loop:
 
 1. Re-run the recorded loop before changing code to confirm the reported symptom still goes red. If the current evidence no longer reproduces it, surface that contradiction instead of claiming a fix.
 2. When a correct test seam can exercise the minimized real bug pattern, turn that scenario into a failing regression test before the fix, observe it fail, then observe it pass after the correction. A shallow test that cannot exercise the real pattern is not acceptable evidence; state when no correct seam exists.
+   If the red is forced by mutating code or a fixture, diff against a pristine copy to prove the mutation landed before trusting the failure. Restore the temporary mutation before validating the actual fix.
 3. Re-run the original diagnostic loop after the correction. Preserve the redacted evidence and result under # Fix Evidence in the Bug Brief.
 4. Tag any temporary diagnostic logging or instrumentation with one unique prefix. Before archiving, search for that prefix and remove all temporary instrumentation; do not leave debugging scaffolding in the completed fix.`;
+
+const AUDIT_STANDARDS_GUIDANCE = `Repository Standards
+
+Search the relevant repositories for every file that documents how the changed code should be written, including applicable AGENTS.md or CLAUDE.md instructions. When CODING_STANDARDS.md or CONTRIBUTING.md exists, include it among the standards sources. Apply each source only within its scope. Cite the applicable rule and concrete evidence for a standards finding; do not turn personal preferences into requirements.
+
+For a mechanical violation, inspect the existing lint, typecheck, test, and CI commands before recommending a new rule. Prefer a deterministic check over more prose when it can catch the violation. Report missing or unwired checks only when they materially affect this change; do not add hooks or CI during the audit.`;
 
 const TASK_BRIEF_SUFFICIENCY_GUIDANCE = `Brief Sufficiency
 
@@ -1054,6 +1069,8 @@ Audit Phases
 3. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
 4. Engineering risk: check maintainability, unnecessary complexity, duplication, performance, memory, concurrency, and security.
 
+${AUDIT_STANDARDS_GUIDANCE}
+
 Severity
 
 Critical - Causes incorrect behavior or violates requirements.
@@ -1258,6 +1275,8 @@ Audit Phases
 3. Break attempt: construct inputs or flows that reproduce the old bug or expose adjacent failures.
 4. Regression analysis: check behavior changes, compatibility issues, state corruption, and hidden side effects.
 5. Engineering risk: check maintainability, unnecessary complexity, duplication, performance, memory, concurrency, and security.
+
+${AUDIT_STANDARDS_GUIDANCE}
 
 Severity
 
