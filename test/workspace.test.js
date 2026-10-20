@@ -57,140 +57,23 @@ test('init keeps the existing single-project workflow unchanged', (t) => {
 
   assert.equal(result.status, 0, output(result));
   assert.equal(existsSync(path.join(project, '.ai', 'decisions', 'decisions.md')), true);
-  assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'active')), true);
-  assert.equal(existsSync(path.join(project, '.ai', 'efforts', 'archive')), true);
-  assert.equal(existsSync(path.join(project, '.ai', 'specs')), true);
+  assert.equal(existsSync(path.join(project, '.ai', 'efforts')), false);
+  assert.equal(existsSync(path.join(project, '.ai', 'specs')), false);
   assert.equal(existsSync(path.join(project, '.claude')), false);
   assert.equal(existsSync(path.join(project, '.codex')), false);
   assert.equal(existsSync(path.join(project, 'CONTEXT.md')), false);
   assert.equal(existsSync(path.join(project, 'GLOSSARY.md')), false);
   assert.equal(existsSync(path.join(project, 'workspace.yaml')), false);
-  assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /workspace\.local\.yaml/);
-  assert.match(readFileSync(path.join(project, '.gitignore'), 'utf-8'), /\.ai\/efforts\/active\/\*\.md/);
-  writeFileSync(path.join(project, '.ai', 'efforts', 'active', 'example.md'), '# Example\n');
-  assert.doesNotThrow(() => execFileSync(
-    'git',
-    ['-C', project, 'check-ignore', '--quiet', '--', '.ai/efforts/active/example.md'],
-    { stdio: 'ignore' }
-  ));
-  writeFileSync(path.join(project, '.ai', 'specs', 'example.md'), '# Example Spec\n');
-  assert.throws(() => execFileSync(
-    'git',
-    ['-C', project, 'check-ignore', '--quiet', '--', '.ai/specs/example.md'],
-    { stdio: 'ignore' }
-  ));
+  const gitignore = readFileSync(path.join(project, '.gitignore'), 'utf-8');
+  assert.match(gitignore, /workspace\.local\.yaml/);
+  assert.doesNotMatch(gitignore, /\.ai\/efforts|\.ai\/runs/);
 
   const doctorResult = runTask(project, 'doctor', { home });
   assert.equal(doctorResult.status, 0, output(doctorResult));
-  assert.match(output(doctorResult), /\.ai\/efforts\/active - present/);
-  assert.match(output(doctorResult), /\.ai\/efforts\/archive - present/);
-  assert.match(output(doctorResult), /\.ai\/specs - present/);
+  assert.match(output(doctorResult), /\.ai\/tasks\/active - present/);
+  assert.match(output(doctorResult), /\.ai\/bugs\/active - present/);
+  assert.doesNotMatch(output(doctorResult), /\.ai\/efforts|\.ai\/specs/);
   assert.doesNotMatch(output(doctorResult), /workspace\.yaml/);
-});
-
-test('skill install provides one natural-language effort exploration skill for both providers', (t) => {
-  const project = createTemporaryDirectory(t);
-  const home = createTemporaryHome(t);
-  initializeGitRepository(project);
-
-  const initResult = runTask(project, 'init');
-  assert.equal(initResult.status, 0, output(initResult));
-  for (const target of ['claude', 'codex']) {
-    const installResult = runTask(project, 'skill', 'install', target, { home });
-    assert.equal(installResult.status, 0, output(installResult));
-  }
-
-  for (const skillRoot of ['.claude', '.codex']) {
-    const skillPath = path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md');
-    const skill = readFileSync(skillPath, 'utf-8');
-
-    assert.match(skill, /name: effort-explore/);
-    assert.match(skill, /description: .*explicit reopening/);
-    assert.match(skill, /natural-language request/);
-    assert.match(skill, /state: open/);
-    assert.match(skill, /state: closed/);
-    assert.match(skill, /multiple plausible Efforts/);
-    assert.match(skill, /For every request about an existing Effort/);
-    assert.match(skill, /Evidence Discipline/);
-    assert.match(skill, /# Evidence Ledger/);
-    assert.match(skill, /# Risks/);
-    assert.match(skill, /## Observed Facts/);
-    assert.match(skill, /## Inferred Rationale/);
-    assert.match(skill, /## Evidence Conflicts/);
-    assert.match(skill, /Never convert an inference, hypothesis, or observed fact into a Confirmed Decision/);
-    assert.match(skill, /An unresolved item is material when settling it could alter/);
-    assert.match(skill, /recorded non-blocking Risk/);
-    assert.match(skill, /Optional Project Glossary/);
-    assert.match(skill, /GLOSSARY\.md.*optional, single glossary/);
-    assert.match(skill, /Glossary Check/);
-    assert.match(skill, /Do not create a glossary or change it just because a word appeared/);
-    assert.match(skill, /explicitly confirms the exact proposed edit/);
-    assert.match(skill, /Do not infer \`GLOSSARY-MAP\.md\` or \`CONTEXT-MAP\.md\` support/);
-    assert.match(skill, /# Closure/);
-    assert.match(skill, /record the closure reason/);
-    assert.match(skill, /explicit confirmation/);
-    assert.match(skill, /Do not delete code, Task artifacts, Bug artifacts, or unrelated user changes/);
-    assert.doesNotMatch(skill, /effort-status|effort-park|effort-abandon/);
-  }
-});
-
-test('skill install provides the confirmed Effort-to-Spec Task Graph workflow for both providers', (t) => {
-  const project = createTemporaryDirectory(t);
-  const home = createTemporaryHome(t);
-  initializeGitRepository(project);
-
-  const initResult = runTask(project, 'init');
-  assert.equal(initResult.status, 0, output(initResult));
-  for (const target of ['claude', 'codex']) {
-    const installResult = runTask(project, 'skill', 'install', target, { home });
-    assert.equal(installResult.status, 0, output(installResult));
-  }
-
-  for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(home, skillRoot, 'skills');
-    const effortSpec = readFileSync(path.join(skillsDirectory, 'effort-spec', 'SKILL.md'), 'utf-8');
-    const taskImplement = readFileSync(path.join(skillsDirectory, 'task-implement', 'SKILL.md'), 'utf-8');
-
-    assert.match(effortSpec, /name: effort-spec/);
-    assert.match(effortSpec, /description: .*reviewed Task Graph/);
-    assert.match(effortSpec, /Spec Proposal/);
-    assert.match(effortSpec, /\.ai\/specs\//);
-    assert.match(effortSpec, /explicit confirmation/);
-    assert.match(effortSpec, /Task Graph/);
-    assert.match(effortSpec, /execution projection/);
-    assert.match(effortSpec, /Requirement ID/);
-    assert.match(effortSpec, /Acceptance Criterion ID/);
-    assert.match(effortSpec, /Verification Owner/);
-    assert.match(effortSpec, /Verification Boundaries/);
-    assert.match(effortSpec, /highest observable seam/);
-    assert.match(effortSpec, /Acceptance Criterion ID -> Verification Boundary mapping/);
-    assert.match(effortSpec, /independently observable end-to-end behavior/);
-    assert.match(effortSpec, /expand-migrate-contract/);
-    assert.match(effortSpec, /all-or-nothing/);
-    assert.match(effortSpec, /re-derive the candidate from the latest Spec and existing generated Task Briefs/);
-    assert.match(effortSpec, /Never accept graph approval solely from a previous conversation display/);
-    assert.match(effortSpec, /staging directory below .ai/);
-    assert.match(effortSpec, /Briefs only for new or materially changed Task IDs/);
-    assert.match(effortSpec, /Retained compatible Task IDs are recorded in the accepted graph but never staged, overwritten, moved, or otherwise changed/);
-    assert.match(effortSpec, /remove only those promoted Briefs/);
-    assert.match(effortSpec, /restore the prior Spec Record from its snapshot/);
-    assert.match(effortSpec, /Destination, Context, Constraints, Confirmed Decisions, Requirements, Acceptance Criteria, Verification Boundaries, Out of Scope, or Risks/);
-    assert.match(effortSpec, /Impact Report/);
-    assert.match(effortSpec, /Task Compatibility/);
-    assert.match(effortSpec, /Task Graph confirmation never modifies the confirmed Spec/);
-    assert.match(effortSpec, /Task ID is an execution-semantic identity/);
-    assert.match(effortSpec, /owned Requirement and Acceptance Criterion IDs, Verification Owner responsibility/);
-    assert.match(effortSpec, /automatically stage or commit/);
-    assert.doesNotMatch(effortSpec, /task-decompose/);
-
-    assert.match(taskImplement, /Task Graph Metadata/);
-    assert.match(taskImplement, /depends_on/);
-    assert.match(taskImplement, /Task ID/);
-    assert.match(taskImplement, /Completion Evidence/);
-    assert.match(taskImplement, /Task Compatibility/);
-    assert.match(taskImplement, /Acceptance Criterion ID -> Verification Boundary mappings/);
-    assert.match(taskImplement, /Legacy Task Briefs without Task Graph Metadata/);
-  }
 });
 
 test('skill install provides evidence-based brief metadata guidance for task and bug workflows', (t) => {
@@ -242,51 +125,6 @@ test('skill install provides diagnostic feedback-loop and regression-loop rules 
     assert.match(bugFix, /Regression Loop/);
     assert.match(bugFix, /failing regression test before the fix/);
     assert.match(bugFix, /temporary diagnostic logging or instrumentation/);
-  }
-});
-
-test('skill install provides strict decision memory noise controls', (t) => {
-  const project = createTemporaryDirectory(t);
-  const home = createTemporaryHome(t);
-  initializeGitRepository(project);
-
-  const initResult = runTask(project, 'init');
-  assert.equal(initResult.status, 0, output(initResult));
-  for (const target of ['claude', 'codex']) {
-    const installResult = runTask(project, 'skill', 'install', target, { home });
-    assert.equal(installResult.status, 0, output(installResult));
-  }
-
-  for (const skillRoot of ['.claude', '.codex']) {
-    const skillsDirectory = path.join(home, skillRoot, 'skills');
-    const decisionLog = readFileSync(path.join(skillsDirectory, 'decision-log', 'SKILL.md'), 'utf-8');
-    const decisionSweep = readFileSync(path.join(skillsDirectory, 'decision-sweep-weekly', 'SKILL.md'), 'utf-8');
-    const decisionCurate = readFileSync(path.join(skillsDirectory, 'decision-curate', 'SKILL.md'), 'utf-8');
-
-    assert.match(decisionLog, /Record approved stable project constraints/);
-    assert.match(decisionLog, /Bug count, task count, or review pain is not a selection criterion/);
-    assert.match(decisionLog, /Future-choice test/);
-    assert.match(decisionLog, /Artifact test/);
-    assert.match(decisionLog, /project documentation already makes the constraint unambiguous/);
-    assert.match(decisionLog, /common engineering practices already implied by the codebase, tests, or toolchain/);
-    assert.match(decisionLog, /Do not create separate entries for repeated symptoms/);
-    assert.match(decisionLog, /A zero-entry outcome is acceptable/);
-
-    assert.match(decisionSweep, /A sweep that proposes no new decisions is a valid successful outcome/);
-    assert.match(decisionSweep, /It is not a scheduled weekly requirement/);
-    assert.match(decisionSweep, /When no range is specified, default to the last 7 days/);
-    assert.match(decisionSweep, /Repeated symptoms are evidence, not separate decisions/);
-    assert.match(decisionSweep, /Decision growth must be non-linear with task and bug volume/);
-    assert.match(decisionSweep, /The number of scanned briefs never implies a minimum draft count/);
-    assert.match(decisionSweep, /Prefer zero drafts over weak drafts/);
-    assert.match(decisionSweep, /Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint/);
-
-    assert.match(decisionCurate, /Prune assertively/);
-    assert.match(decisionCurate, /It must change a future choice, not merely remind developers to avoid a past mistake/);
-    assert.match(decisionCurate, /Possible future usefulness is not enough/);
-    assert.match(decisionCurate, /Bias toward removal or merge/);
-    assert.match(decisionCurate, /Prefer deleting or merging low-value entries/);
-    assert.match(decisionCurate, /Do not keep an entry merely because removal feels risky/);
   }
 });
 
@@ -363,15 +201,20 @@ test('skill install provides adaptive direct completion and frontier grilling wi
     assert.doesNotMatch(bugFix, /Plan Context/);
   }
 
+  const removedSkillNames = [
+    'effort-explore', 'effort-spec', 'effort-implement',
+    'decision-log', 'decision-sweep-weekly', 'decision-curate',
+  ];
   for (const skillRoot of ['.claude', '.codex']) {
     writeFileSync(
       path.join(home, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
       'Stale task-fast guidance.\n'
     );
-    writeFileSync(
-      path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
-      'Stale effort guidance.\n'
-    );
+    for (const skillName of removedSkillNames) {
+      const skillPath = path.join(home, skillRoot, 'skills', skillName, 'SKILL.md');
+      mkdirSync(path.dirname(skillPath), { recursive: true });
+      writeFileSync(skillPath, 'Stale removed workflow.\n');
+    }
   }
 
   const updateResult = runTask(project, 'skill', 'update', { home });
@@ -384,17 +227,9 @@ test('skill install provides adaptive direct completion and frontier grilling wi
     );
     assert.match(refreshedTaskFast, /Direct Completion Check/);
     assert.match(refreshedTaskFast, /Automatic Escalation/);
-    const refreshedEffortExplore = readFileSync(
-      path.join(home, skillRoot, 'skills', 'effort-explore', 'SKILL.md'),
-      'utf-8'
-    );
-    assert.match(refreshedEffortExplore, /natural-language request/);
-    assert.match(refreshedEffortExplore, /state: open/);
-    const refreshedEffortSpec = readFileSync(
-      path.join(home, skillRoot, 'skills', 'effort-spec', 'SKILL.md'),
-      'utf-8'
-    );
-    assert.match(refreshedEffortSpec, /Task Graph/);
+    for (const skillName of removedSkillNames) {
+      assert.equal(existsSync(path.join(home, skillRoot, 'skills', skillName)), false);
+    }
     assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'task-plan', 'SKILL.md')), false);
     assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'bug-plan', 'SKILL.md')), false);
   }
@@ -519,24 +354,26 @@ test('doctor checks globally installed skills and suggests repair commands', (t)
   assert.match(output(outdatedDoctor), /Recommended next step: run `task skill update`/);
 });
 
-test('workflow documentation describes direct completion and automatic escalation', () => {
+test('workflow documentation describes the supported task, bug, and project workflows', () => {
   const english = readFileSync(path.join(projectRoot, 'README.md'), 'utf-8');
   const chinese = readFileSync(path.join(projectRoot, 'README.zh-CN.md'), 'utf-8');
 
   assert.match(english, /evidence-based direct-completion check/);
   assert.match(english, /automatically continues with full task or bug exploration/);
   assert.match(english, /independent frontier in rounds/);
-  assert.match(english, /effort-explore/);
-  assert.match(english, /large or uncertain request/);
-  assert.match(english, /effort-spec/);
-  assert.match(english, /Task Graph/);
+  assert.match(english, /project-explore/);
+  assert.match(english, /task-fast/);
+  assert.match(english, /task-explore/);
+  assert.match(english, /bug-explore/);
+  assert.doesNotMatch(english, /effort-explore|effort-spec|effort-implement|Task Graph/i);
   assert.match(chinese, /基于证据的直接完成检查/);
   assert.match(chinese, /自动进入完整的 task 或 bug 探索/);
   assert.match(chinese, /当前所有互不依赖的问题/);
-  assert.match(chinese, /effort-explore/);
-  assert.match(chinese, /大型或不确定的请求/);
-  assert.match(chinese, /effort-spec/);
-  assert.match(chinese, /任务图/);
+  assert.match(chinese, /project-explore/);
+  assert.match(chinese, /task-fast/);
+  assert.match(chinese, /task-explore/);
+  assert.match(chinese, /bug-explore/);
+  assert.doesNotMatch(chinese, /effort-explore|effort-spec|effort-implement|任务图/i);
 });
 
 test('add-repo promotes an initialized Git project to a portable workspace', (t) => {
@@ -603,24 +440,17 @@ test('use-context routes workflow state to a Git context repository while skills
   const launchWorkspace = JSON.parse(readFileSync(path.join(launchRoot, 'workspace.yaml'), 'utf-8'));
   assert.equal(launchWorkspace.context_repository, 'agent-context');
   assert.equal(existsSync(path.join(context, '.ai', 'decisions', 'decisions.md')), true);
-  assert.equal(existsSync(path.join(context, '.ai', 'efforts', 'active')), true);
-  assert.equal(existsSync(path.join(context, '.ai', 'efforts', 'archive')), true);
-  assert.equal(existsSync(path.join(context, '.ai', 'specs')), true);
+  assert.equal(existsSync(path.join(context, '.ai', 'efforts')), false);
+  assert.equal(existsSync(path.join(context, '.ai', 'specs')), false);
   assert.equal(existsSync(path.join(context, 'CONTEXT.md')), false);
-  assert.match(readFileSync(path.join(context, '.gitignore'), 'utf-8'), /\.ai\/efforts\/active\/\*\.md/);
-  writeFileSync(path.join(context, '.ai', 'efforts', 'active', 'context-effort.md'), '# Context Effort\n');
-  assert.doesNotThrow(() => execFileSync(
-    'git',
-    ['-C', context, 'check-ignore', '--quiet', '--', '.ai/efforts/active/context-effort.md'],
-    { stdio: 'ignore' }
-  ));
+  const contextGitignore = readFileSync(path.join(context, '.gitignore'), 'utf-8');
+  assert.doesNotMatch(contextGitignore, /\.ai\/efforts|\.ai\/runs/);
   assert.equal(readFileSync(path.join(launchRoot, '.ai', 'tasks', 'active', 'legacy.md'), 'utf-8'), '# Legacy root state\n');
   assert.equal(existsSync(path.join(launchRoot, '.codex')), false);
   assert.equal(existsSync(path.join(context, '.codex')), false);
   for (const skillName of [
-    'task-fast', 'effort-explore', 'effort-spec', 'task-explore', 'task-implement', 'task-audit', 'task-cancel',
+    'project-explore', 'task-fast', 'task-explore', 'task-implement', 'task-audit', 'task-cancel',
     'bug-explore', 'bug-fix', 'bug-audit', 'bug-cancel',
-    'decision-log', 'decision-sweep-weekly', 'decision-curate',
   ]) {
     const skill = readFileSync(path.join(home, '.codex', 'skills', skillName, 'SKILL.md'), 'utf-8');
     assert.match(skill, /context_repository/);

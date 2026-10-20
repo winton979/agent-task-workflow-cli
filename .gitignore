@@ -3,6 +3,4 @@ node_modules
 # task workflow
 .ai/tasks/active/*.md
 .ai/bugs/active/*.md
-.ai/efforts/active/*.md
 workspace.local.yaml
-intro.html

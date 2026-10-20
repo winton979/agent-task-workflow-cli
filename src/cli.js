@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
 import { createCliLog, parseAddRepoOptions } from './cli-common.js';
@@ -34,6 +34,8 @@ Usage:
   task skill remove [<target> ...]
                 Remove globally installed workflow skills
   task doctor   Check workflow setup and global skill freshness
+  task --version
+                Show the installed package version
   task --help   Show this help
 
 Recommended flows after init (requires "task skill install <agents|claude|codex>" once per machine):
@@ -56,6 +58,10 @@ function parseRepositoryScope(args) {
 
 try {
   switch (cmd) {
+    case '--version':
+    case '-v':
+      console.log(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')).version);
+      break;
     case 'init':
       init(cwd, { fs, path, log });
       break;

@@ -2,88 +2,67 @@
 
 [简体中文](README.zh-CN.md)
 
-A lightweight workflow for AI-assisted development. It separates requirement exploration from implementation so an agent decides whether added complexity is justified before it starts coding.
-
-> Explore decides whether complexity is justified. Implement delivers the least complex acceptable solution.
+A lightweight, evidence-driven workflow for AI-assisted software changes. It keeps small fixes fast, turns non-trivial work into reviewable task or bug briefs, and validates implementation before archiving it.
 
 ## Install
 
 Requires Node.js 18 or later.
 
 ```bash
-# npm
 npm install -g @winton979/task-cli
-
-# volta
-volta install @winton979/task-cli
-
 task init
+task skill install codex   # or: agents | claude
 ```
 
-`task init` creates the `.ai/` workspace only. Workflow skills are installed globally per machine with `task skill install <agents|claude|codex>` into `~/.agents/skills/`, `~/.claude/skills/`, or `~/.codex/skills/`; keep them current with `task skill update`.
+`task init` creates project-local state under `.ai/`. Workflow skills are installed globally at `~/.codex/skills`, `~/.agents/skills`, or `~/.claude/skills`.
 
 ```text
 .ai/
 ├── tasks/active and tasks/archive
 ├── bugs/active and bugs/archive
-├── efforts/active and efforts/archive
-├── specs
 └── decisions/decisions.md
 ```
 
 ## Workflows
 
-In Claude Code, invoke a skill as `/skill-name`; in Codex CLI, use `$skill-name`.
+In Claude Code, invoke a skill as `/skill-name`; in Codex, use `$skill-name`.
 
-| Need | Flow |
+| Need | Workflow |
 | --- | --- |
-| Understand the project | `project-explore` |
-| Small, unambiguous change | `task-fast` |
-| Large or uncertain request | `effort-explore` |
-| Turn a ready Effort into reviewed Tasks | `effort-spec` -> `task-implement` |
-| Non-trivial new or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
-| Non-trivial bug fix | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
+| Understand the existing project | `project-explore` |
+| Complete a small task or fix | `task-fast` |
+| Deliver non-trivial new or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
+| Fix a non-trivial bug | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
 | Abandon an attempt | `task-cancel` or `bug-cancel` |
 
-Every task and bug entry starts with an evidence-based direct-completion check. When the requested behavior is explicit, the correction is a trivial narrow patch, project conventions determine the approach, and focused validation is available, the skill completes and verifies the work in the same invocation without creating a task, bug, or decision artifact. Direct Completion is a proof obligation, not a confidence score: ambiguity that cannot be ruled out from the request, repository evidence, and applicable decisions requires exploration. `task-fast` automatically continues with full task or bug exploration when that check does not qualify; it does not rely on the user's estimate that the work is small.
+Every task and bug entry starts with an evidence-based direct-completion check. When the request is explicit, the patch is genuinely narrow, project conventions determine the approach, and focused validation is available, the skill completes and verifies the change without creating an artifact. Otherwise, `task-fast` automatically continues with full task or bug exploration; it does not rely on the user's estimate that the work is small.
 
-`task-explore` and `bug-explore` embed the `grilling` (Grill Me) protocol from [Matt Pocock's skills collection](https://github.com/mattpocock/skills.git) at commit `49dd158d1076134a641b33efb035946536778336` (October 9, 2026), not as a runtime dependency. Non-direct exploration, including `task-fast` escalation, maps decisions as a tree and asks the independent frontier in rounds. Each question includes a recommendation and is worded so "yes" accepts it. Repository facts are investigated rather than pushed back to the user; exploration waits for confirmed shared understanding before creating a brief. See [the integration guide](GRILLING_INTEGRATION_GUIDE.md) for provenance and upgrade boundaries.
+Non-direct exploration uses the pinned Grilling protocol: decisions form a tree, and each round asks the independent frontier in rounds with a recommended answer. Repository facts are investigated by the agent rather than pushed back to the user.
 
-`effort-explore` manages a large or uncertain request in natural language. It records unresolved decisions and the current frontier in one resumable Effort, while keeping observed facts, inferred rationale, and evidence conflicts distinct from user-confirmed decisions. An Effort is ready when no unresolved item can materially change its Spec contract; residual uncertainty must either be contract-irrelevant or a recorded non-blocking Risk. Ask to continue it, check its status, close it, or explicitly reopen it; closure always requires confirmation and preserves the archived record.
-
-`GLOSSARY.md` is the optional single glossary at the workflow state root, with `CONTEXT.md` used for compatibility when `GLOSSARY.md` is absent. Existing files are never automatically renamed or merged, and neither `task init` nor `task refresh` creates either file. When a material project term is ambiguous, conflicts with the glossary or code, or becomes a stable cross-task concept, `effort-explore` proposes a concise edit to the selected glossary (or a new `GLOSSARY.md` if neither exists) and waits for explicit confirmation. It never treats the glossary as a Spec, decision log, or session record.
-
-`effort-spec` turns a ready open Effort into a resumable Spec Proposal. After explicit Spec confirmation, it writes a version-controlled Spec Record in `.ai/specs/` and internally presents a Task Graph, the contract's execution projection. A second confirmation creates all generated Task Briefs together. Graph feedback may change grouping, ownership, or true dependencies, but cannot change the confirmed Spec; contract changes return to a Spec Proposal. Each acceptance criterion has a highest practical Verification Boundary, and Tasks normally deliver independently observable end-to-end behavior; a wide mechanical refactor uses an explicit expand-migrate-contract sequence. Generated Tasks retain source-condition traceability, true dependency gates, and completion evidence; existing Task and Bug flows remain unchanged.
-
-For a non-direct Bug, `bug-explore` first establishes a red-capable, redacted diagnostic loop before it can confirm a root cause or produce `BUG_READY`. `bug-fix` reuses that loop for regression evidence and removes temporary diagnostic instrumentation before archival.
-
-Verification Boundary proposals state what each boundary catches and misses. If a regression test is forced red by a temporary code or fixture mutation, `bug-fix` requires a diff against a pristine copy before trusting the failure, then restoration before validating the fix. `task-audit` and `bug-audit` search for applicable repository standards, including `CODING_STANDARDS.md` and `CONTRIBUTING.md`, and ground findings in rules and evidence. Mechanical violations favor existing deterministic checks over additional prose rules; audits do not install hooks or CI.
-
-## Decision Memory
-
-Task and bug archives preserve work history. Code, tests, tooling, configuration, and project documentation preserve engineering knowledge. `decisions.md` is intentionally smaller: record only a non-obvious durable constraint that changes a specific future choice and is not already unambiguous in those artifacts.
-
-Use `decision-log` for a confirmed constraint. `decision-sweep-weekly` is an on-demand curation pass, not a weekly ceremony or a requirement to produce decisions; a sweep that adds nothing is a successful result.
+Task and bug briefs are concise execution contracts. `task-implement` and `bug-fix` validate before moving completed briefs into `archive/`. Audits are independent, evidence-seeking reviews and are optional unless the risk warrants one.
 
 ## Commands
 
 ```bash
-task init        # create the .ai workspace (project-local)
-task add-repo    # add a Git repository and enable workspace mode
-task use-context # store workflow state in a registered Git repository
-task bind-repo   # override a repository path for the current machine
-task repos       # list configured workspace repositories
-task refresh     # ensure .ai state and remove legacy project-local skills
-task skill install <agents|claude|codex> # install workflow skills globally
-task skill update [<target> ...]         # update globally installed skills
-task skill remove [<target> ...]         # remove globally installed skills
-task doctor      # check workspace state, global skill versions, and gitignore rules
+task init
+task add-repo <path> [--id <id>] [--description <text>]
+task use-context <id>
+task bind-repo <id> <path>
+task enable-repo <id> [--local]
+task disable-repo <id> [--local]
+task repos
+task refresh
+task skill install <agents|claude|codex>
+task skill update [<target> ...]
+task skill remove [<target> ...]
+task doctor
+task --version
 task --help
 ```
 
 ## workscope
 
-`workscope` is a standalone workspace manifest tool shipped in the same package. It manages `workspace.yaml` and `workspace.local.yaml` only — it does not install skills, create `.ai/` state, or require `task init` to have been run.
+`workscope` is a standalone workspace manifest tool shipped in the same package. It manages `workspace.yaml` and `workspace.local.yaml` without creating `.ai/` state or installing skills.
 
 ```bash
 workscope add-repo <path> [--id <id>] [--description <text>]
@@ -91,43 +70,34 @@ workscope use-context <id>
 workscope bind-repo <id> <path>
 workscope enable-repo <id> [--local]
 workscope disable-repo <id> [--local]
-workscope focus <id> [<id>...] [--local]   # enable listed, disable all others
+workscope focus <id> [<id>...] [--local]
 workscope repos
 workscope --help
 ```
 
-`workscope focus` is useful when working on a subset of repositories: it enables the listed IDs and disables everything else, in one command. If a `context_repository` is configured, it must be included in the focus list.
-
-The `--local` flag writes overrides to gitignored `workspace.local.yaml` instead of the shared `workspace.yaml`. workscope automatically adds `workspace.local.yaml` to `.gitignore` on first local write.
-
-On the first write command in a directory, workscope also generates a `WORKSPACE.md` declaration describing the workspace layout. Edit it to customize the project name or description. Read-only commands (`repos`, `--help`) skip this generation.
+The `--local` flag writes machine-specific overrides to ignored `workspace.local.yaml`.
 
 ## Multi-Repository Workspaces
-
-Initialize task-cli in the directory you will use as the shared workflow root.
 
 ```bash
 task init
 task add-repo ../frontend --id frontend --description "Web application"
 task bind-repo frontend D:/work/acme/web-client
-task disable-repo frontend
-task enable-repo frontend --local
 task repos
 ```
 
-The first `task add-repo` creates `workspace.yaml`. Use `task bind-repo` for per-developer path overrides (written to ignored `workspace.local.yaml`). Use `task use-context` to store workflow state in a registered Git repository when the launch root differs from the business repository.
+Use `task use-context` when workflow state should live in a registered repository rather than the launch directory. Disabled repositories are excluded from routine exploration until explicitly requested.
 
 ## Upgrade
 
 ```bash
-npm install -g @winton979/task-cli@latest   # or: volta install @winton979/task-cli
-task skill install <agents|claude|codex>    # first time on this machine
-task skill update                           # later upgrades
+npm install -g @winton979/task-cli@latest
+task skill update
 task doctor
-task refresh                                # removes legacy project-local skills
+task refresh
 ```
 
-`task refresh` preserves `.ai/tasks`, `.ai/bugs`, `.ai/efforts`, `.ai/specs`, `.ai/decisions`, `workspace.yaml`, `workspace.local.yaml`, and unrelated custom skills.
+`task refresh` preserves existing tasks, bugs, decisions, workspace manifests, and unrelated custom skills.
 
 ## License
 
