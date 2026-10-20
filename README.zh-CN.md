@@ -33,6 +33,8 @@ Claude Code 使用 `/skill-name` 调用；Codex 使用 `$skill-name`。
 | 完成小任务或小修复 | `task-fast` |
 | 交付非简单的新增或修改行为 | `task-explore` -> `task-implement` -> 可选 `task-audit` |
 | 修复非简单缺陷 | `bug-explore` -> `bug-fix` -> 可选 `bug-audit` |
+| 记录长期项目约束 | `decision-log` |
+| 清理决策记忆 | `decision-curate` 或 `decision-sweep-weekly` |
 | 放弃当前尝试 | `task-cancel` 或 `bug-cancel` |
 
 每个 task 和 bug 入口都会先做基于证据的直接完成检查。当目标明确、改动确实窄小、项目惯例足以决定实现方式，并且可以进行聚焦验证时，技能会在当前调用内完成并验证，不创建工件。否则 `task-fast` 会自动进入完整的 task 或 bug 探索，而不依赖用户对工作量的判断。
@@ -40,6 +42,10 @@ Claude Code 使用 `/skill-name` 调用；Codex 使用 `$skill-name`。
 非直接完成的探索使用固定版本的 Grilling 协议：将决策组织为树，每轮只询问当前所有互不依赖的问题，并给出推荐答案。仓库事实由 Agent 自行调查，不要求用户提供可查到的信息。
 
 Task 与 Bug brief 是精简的执行契约。`task-implement` 与 `bug-fix` 完成验证后才把 brief 移入 `archive/`。Audit 是独立的证伪式审查，仅在风险需要时启用。
+
+## 决策沉淀
+
+`.ai/decisions/decisions.md` 只保存会改变某个具体未来选择的长期项目约束。使用 `decision-log` 记录已确认约束；使用 `decision-curate` 删除、合并或收紧陈旧、重复和低价值条目；需要回顾近期 task/bug 工作时，按需运行 `decision-sweep-weekly`。没有新增决策也是有效结果。
 
 ## 命令
 

@@ -128,6 +128,51 @@ test('skill install provides diagnostic feedback-loop and regression-loop rules 
   }
 });
 
+test('skill install provides strict decision memory noise controls', (t) => {
+  const project = createTemporaryDirectory(t);
+  const home = createTemporaryHome(t);
+  initializeGitRepository(project);
+
+  const initResult = runTask(project, 'init');
+  assert.equal(initResult.status, 0, output(initResult));
+  for (const target of ['claude', 'codex']) {
+    const installResult = runTask(project, 'skill', 'install', target, { home });
+    assert.equal(installResult.status, 0, output(installResult));
+  }
+
+  for (const skillRoot of ['.claude', '.codex']) {
+    const skillsDirectory = path.join(home, skillRoot, 'skills');
+    const decisionLog = readFileSync(path.join(skillsDirectory, 'decision-log', 'SKILL.md'), 'utf-8');
+    const decisionSweep = readFileSync(path.join(skillsDirectory, 'decision-sweep-weekly', 'SKILL.md'), 'utf-8');
+    const decisionCurate = readFileSync(path.join(skillsDirectory, 'decision-curate', 'SKILL.md'), 'utf-8');
+
+    assert.match(decisionLog, /Record approved stable project constraints/);
+    assert.match(decisionLog, /Bug count, task count, or review pain is not a selection criterion/);
+    assert.match(decisionLog, /Future-choice test/);
+    assert.match(decisionLog, /Artifact test/);
+    assert.match(decisionLog, /project documentation already makes the constraint unambiguous/);
+    assert.match(decisionLog, /common engineering practices already implied by the codebase, tests, or toolchain/);
+    assert.match(decisionLog, /Do not create separate entries for repeated symptoms/);
+    assert.match(decisionLog, /A zero-entry outcome is acceptable/);
+
+    assert.match(decisionSweep, /A sweep that proposes no new decisions is a valid successful outcome/);
+    assert.match(decisionSweep, /It is not a scheduled weekly requirement/);
+    assert.match(decisionSweep, /When no range is specified, default to the last 7 days/);
+    assert.match(decisionSweep, /Repeated symptoms are evidence, not separate decisions/);
+    assert.match(decisionSweep, /Decision growth must be non-linear with task and bug volume/);
+    assert.match(decisionSweep, /The number of scanned briefs never implies a minimum draft count/);
+    assert.match(decisionSweep, /Prefer zero drafts over weak drafts/);
+    assert.match(decisionSweep, /Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint/);
+
+    assert.match(decisionCurate, /Prune assertively/);
+    assert.match(decisionCurate, /It must change a future choice, not merely remind developers to avoid a past mistake/);
+    assert.match(decisionCurate, /Possible future usefulness is not enough/);
+    assert.match(decisionCurate, /Bias toward removal or merge/);
+    assert.match(decisionCurate, /Prefer deleting or merging low-value entries/);
+    assert.match(decisionCurate, /Do not keep an entry merely because removal feels risky/);
+  }
+});
+
 test('skill install provides adaptive direct completion and frontier grilling without plan skills', (t) => {
   const project = createTemporaryDirectory(t);
   const home = createTemporaryHome(t);
@@ -201,10 +246,7 @@ test('skill install provides adaptive direct completion and frontier grilling wi
     assert.doesNotMatch(bugFix, /Plan Context/);
   }
 
-  const removedSkillNames = [
-    'effort-explore', 'effort-spec', 'effort-implement',
-    'decision-log', 'decision-sweep-weekly', 'decision-curate',
-  ];
+  const removedSkillNames = ['effort-explore', 'effort-spec', 'effort-implement'];
   for (const skillRoot of ['.claude', '.codex']) {
     writeFileSync(
       path.join(home, skillRoot, 'skills', 'task-fast', 'SKILL.md'),
@@ -230,6 +272,9 @@ test('skill install provides adaptive direct completion and frontier grilling wi
     for (const skillName of removedSkillNames) {
       assert.equal(existsSync(path.join(home, skillRoot, 'skills', skillName)), false);
     }
+    for (const skillName of ['decision-log', 'decision-sweep-weekly', 'decision-curate']) {
+      assert.equal(existsSync(path.join(home, skillRoot, 'skills', skillName, 'SKILL.md')), true);
+    }
     assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'task-plan', 'SKILL.md')), false);
     assert.equal(existsSync(path.join(home, skillRoot, 'skills', 'bug-plan', 'SKILL.md')), false);
   }
@@ -237,7 +282,8 @@ test('skill install provides adaptive direct completion and frontier grilling wi
   const helpResult = runTask(project, '--help');
   assert.equal(helpResult.status, 0, output(helpResult));
   assert.match(output(helpResult), /fast: task-fast/);
-  assert.doesNotMatch(output(helpResult), /task-plan|bug-plan/);
+  assert.match(output(helpResult), /other: decision-log \| decision-curate/);
+  assert.doesNotMatch(output(helpResult), /effort-|task-plan|bug-plan/);
 });
 
 test('refresh removes legacy project-local managed skills but keeps unrelated custom skills', (t) => {
@@ -354,7 +400,7 @@ test('doctor checks globally installed skills and suggests repair commands', (t)
   assert.match(output(outdatedDoctor), /Recommended next step: run `task skill update`/);
 });
 
-test('workflow documentation describes the supported task, bug, and project workflows', () => {
+test('workflow documentation describes the supported task, bug, decision, and project workflows', () => {
   const english = readFileSync(path.join(projectRoot, 'README.md'), 'utf-8');
   const chinese = readFileSync(path.join(projectRoot, 'README.zh-CN.md'), 'utf-8');
 
@@ -365,6 +411,8 @@ test('workflow documentation describes the supported task, bug, and project work
   assert.match(english, /task-fast/);
   assert.match(english, /task-explore/);
   assert.match(english, /bug-explore/);
+  assert.match(english, /decision-log/);
+  assert.match(english, /decision-curate/);
   assert.doesNotMatch(english, /effort-explore|effort-spec|effort-implement|Task Graph/i);
   assert.match(chinese, /基于证据的直接完成检查/);
   assert.match(chinese, /自动进入完整的 task 或 bug 探索/);
@@ -373,6 +421,8 @@ test('workflow documentation describes the supported task, bug, and project work
   assert.match(chinese, /task-fast/);
   assert.match(chinese, /task-explore/);
   assert.match(chinese, /bug-explore/);
+  assert.match(chinese, /decision-log/);
+  assert.match(chinese, /decision-curate/);
   assert.doesNotMatch(chinese, /effort-explore|effort-spec|effort-implement|任务图/i);
 });
 
@@ -451,6 +501,7 @@ test('use-context routes workflow state to a Git context repository while skills
   for (const skillName of [
     'project-explore', 'task-fast', 'task-explore', 'task-implement', 'task-audit', 'task-cancel',
     'bug-explore', 'bug-fix', 'bug-audit', 'bug-cancel',
+    'decision-log', 'decision-sweep-weekly', 'decision-curate',
   ]) {
     const skill = readFileSync(path.join(home, '.codex', 'skills', skillName, 'SKILL.md'), 'utf-8');
     assert.match(skill, /context_repository/);

@@ -43,7 +43,9 @@ Recommended flows after init (requires "task skill install <agents|claude|codex>
   fast: task-fast
   task: task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:  bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
-  cancel: task-cancel | bug-cancel`);
+  cancel: task-cancel | bug-cancel
+  other: decision-log | decision-curate
+  sweep: decision-sweep-weekly (on demand)`);
 }
 
 function parseRepositoryScope(args) {

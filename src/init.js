@@ -620,7 +620,7 @@ If the user's primary intent becomes:
 
 * new or changed behavior: recommend task-explore
 * suspected incorrect behavior: recommend bug-explore
-* recording an approved durable decision: state that no managed workflow covers it
+* recording an approved durable decision: recommend decision-log
 * review of a completed task or bug with a brief: recommend task-audit or bug-audit
 * standalone architecture or quality review: state that no managed workflow covers it; do not issue findings, ratings, approval, or a release verdict
 
@@ -1122,7 +1122,266 @@ BUG_CANCELLED
 `,
   },
 
+  'decision-log': {
+    name: 'decision-log',
+    description: 'Record durable decisions with scope and lifecycle metadata. Require explicit user confirmation before changing an existing decision.',
+    content: `---
+name: decision-log
+description: Record durable decisions with scope and lifecycle metadata. Require explicit user confirmation before changing an existing decision.
+user-invocable: true
+---
 
+Purpose
+
+Record approved stable project constraints. This is not a project knowledge base: task and bug archives retain work history, while code, tests, tooling, configuration, and project documentation retain engineering knowledge. Do not record bug lessons, personal learning, or per-task implementation history.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Workflow
+
+1. Decide whether the candidate meets the Selection Standard. Reject it if it is only a bug lesson, common engineering practice, or one-task implementation detail.
+2. Draft a concise entry using the Entry Format and inspect related existing decisions.
+3. Show the draft and any overlap, conflict, or supersession to the user.
+4. Do NOT create or modify an entry yet. Wait for explicit user confirmation.
+5. After confirmation, append the approved new entry or apply only the approved change to an existing entry.
+
+Selection Standard
+
+Bias toward not writing. A decision belongs here only when it is a stable constraint and leaving it undocumented would make a future task or bug exploration materially more likely to choose the wrong path. Potential usefulness, historical interest, or "might help someday" is insufficient.
+
+Future-choice test: before drafting, name the specific future implementation, exploration, compatibility, or boundary choice this entry would change. If no concrete future choice can be named, skip the entry.
+
+Artifact test: before drafting, check whether current code, tests, tooling, configuration, or project documentation already makes the constraint unambiguous. If it does, skip the decision; add one only for a non-obvious durable rationale or a constraint those artifacts cannot preserve.
+
+Bug count, task count, or review pain is not a selection criterion. A bug may be evidence for a decision, but the bug lesson itself is not the decision. Repeated bugs should usually produce tests, lint rules, code simplification, or one consolidated constraint; they must not produce entries proportional to incident count.
+
+Record only durable constraints such as:
+
+* project invariants that will likely constrain future work
+* rejected alternatives someone could plausibly retry later
+* externally forced choices such as compatibility, compliance, vendor, or performance limits
+* intentional behavior that looks incorrect unless explained
+
+Do not record:
+
+* bug lessons, postmortem notes, or reminders to be more careful
+* one-off implementation details
+* local cleanup notes or TODOs
+* common engineering practices already implied by the codebase, tests, or toolchain
+* temporary workarounds that are not yet accepted long-term behavior
+* facts already made obvious by code, tests, or tooling
+* entries kept only because they may be useful someday
+* constraints that disappeared after later simplification or optimization
+
+If unsure, skip the entry.
+
+Save Location
+
+.ai/decisions/decisions.md
+
+Entry Format
+
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: auth, api
+Applies when: all supported configurations
+Supersedes: -
+Superseded by: -
+
+### Problem
+
+What issue was encountered.
+
+### Decision
+
+What was chosen.
+
+### Reason
+
+Why this choice was made.
+
+### Alternatives Considered
+
+What alternatives were rejected.
+
+Requirements
+
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* Status is active, superseded, or deprecated. Record only approved decisions; do not create drafts in this file
+* Scope uses concise, stable project-area terms. Use global only when a decision genuinely applies across the project
+* Applies when distinguishes versions, environments, clients, or other conditions when Scope alone is insufficient
+* Supersedes and Superseded by name a prior or successor DEC identifier, or - when there is none
+* Maximum 14 nonblank lines per decision
+* After confirmation, default to appending a new active entry
+* Prefer fewer, harder decisions over broad coverage
+* One decision should capture one durable constraint, not a mixed summary
+* Do not create separate entries for repeated symptoms when one underlying constraint covers them
+* A zero-entry outcome is acceptable when no candidate passes the Selection Standard
+* If a new entry appears to revise, merge with, or supersede an existing decision, do not edit or append yet
+* Instead, show the relevant prior entry, explain the overlap or conflict, and ask the user whether to append, revise, merge, supersede, or skip
+* After explicit confirmation to supersede, append the new active entry and update the prior entry's Status to superseded and Superseded by reference
+* If two active entries overlap and conflict, stop and ask the user to resolve, narrow Applies when, or supersede one; never choose automatically
+* Only modify an existing entry after explicit user confirmation
+* Legacy date-based entries remain valid historical context. Do not bulk-migrate them without a user request
+* Keep concise
+`,
+  },
+
+  'decision-sweep-weekly': {
+    name: 'decision-sweep-weekly',
+    description: 'On-demand curation of recent task and bug briefs to propose only durable decision entries.',
+    content: `---
+name: decision-sweep-weekly
+description: On-demand curation of recent task and bug briefs to propose only durable decision entries.
+user-invocable: true
+---
+
+Purpose
+
+Review a bounded recent period and sediment only stable constraints that outlive a single task. This is a curation pass, not a recurring production target: task and bug volume must not create a decision obligation. A sweep that proposes no new decisions is a valid successful outcome.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+When to Run
+
+Run only when the user explicitly requests a curation pass, such as after a busy stretch, while reviewing decision-log quality, or before revisiting a known trade-off. It is not a scheduled weekly requirement and must not be run merely to produce decisions.
+
+Workflow
+
+1. Scan the user-requested time range under .ai/tasks/archive/ and .ai/bugs/archive/. When no range is specified, default to the last 7 days. Filter by filename date prefix YYYY-MM-DD. If a brief lacks a date prefix, fall back to filesystem mtime.
+2. For cancelled briefs in either archive, treat the abandonment itself as potential decision material.
+3. Group related briefs by the underlying constraint or trade-off before drafting. Repeated symptoms are evidence, not separate decisions.
+4. Evaluate each brief or group against the Sediment Conditions below.
+5. For each candidate, draft a decision entry using the lifecycle metadata format.
+6. Bias toward skip. Produce a draft only when the decision is clearly durable and likely to change a concrete future choice.
+7. Present a single review list: every scanned brief with a verdict (write / skip / insufficient info), then the proposed drafts grouped at the end.
+8. For every skip, give a short reason such as bug lesson, common practice, one-off detail, already encoded in code, no future constraint, or still unsettled.
+9. Do NOT append anything yet. Wait for the user to confirm which drafts to keep, edit, or drop.
+10. If a proposed draft appears to overlap with, conflict with, or refine an existing decision, include that prior entry in the review and present explicit options such as append as new, revise existing, merge, supersede, or skip.
+11. Only after confirmation, apply the approved action for each draft. Default to appending new active DEC entries oldest first; revise, merge, supersede, deprecate, or remove only when the user explicitly selects that action.
+12. Report what was appended, revised, merged, superseded, and skipped.
+
+Sediment Conditions
+
+A brief or related group becomes a decision entry only if it contains a stable constraint, passes the future-choice test, and satisfies any of:
+
+* Cross-task impact: the choice constrains how future tasks must be written.
+* A concrete alternative was rejected and someone could plausibly pick it later.
+* Counter-intuitive choice: code reads like an anti-pattern but is intentional.
+* Externally driven: compliance, performance, compatibility, or a third-party API limit forced the call.
+* A cancelled attempt whose failure proves a reusable constraint, not merely that one approach was poorly executed.
+* Without the note, a future explore step would likely need to rediscover the same constraint.
+
+Skip Conditions
+
+* Affects only the implementation detail of one task.
+* Captures a bug lesson, postmortem reminder, or ordinary mistake instead of a project constraint.
+* A temporary or unsettled conclusion.
+* A bare fact with no decision behind it.
+* Common engineering knowledge or standard practice.
+* Already obvious from code, tests, tooling, or existing project structure.
+* Kept only because it might be useful someday.
+* A constraint that was later simplified away, optimized away, or otherwise stopped mattering.
+* Too vague to guide a future task.
+
+Entry Format
+
+## DEC-YYYYMMDD-descriptive-slug
+
+Status: active
+Scope: concise project areas
+Applies when: all supported configurations or a concrete condition
+Supersedes: -
+Superseded by: -
+
+### Problem
+
+What issue was encountered.
+
+### Decision
+
+What was chosen.
+
+### Reason
+
+Why this choice was made.
+
+### Alternatives Considered
+
+What alternatives were rejected.
+
+Requirements
+
+* Maximum 14 nonblank lines per decision
+* Default to appending new active entries
+* Use a stable DEC-YYYYMMDD-descriptive-slug identifier for every new entry
+* Decision growth must be non-linear with task and bug volume; many related briefs should collapse to one durable constraint or be skipped
+* The number of scanned briefs never implies a minimum draft count
+* Prefer zero drafts over weak drafts
+* When superseding, update the prior entry to Status: superseded and name its successor only after explicit user confirmation
+* If active entries conflict, propose a resolution, a narrower Applies when condition, or supersession; never choose automatically
+* Legacy date-based entries remain valid. Do not bulk-migrate them without a user request
+* Never edit, merge, supersede, deprecate, or delete prior entries without explicit user confirmation
+`,
+  },
+
+  'decision-curate': {
+    name: 'decision-curate',
+    description: 'Audit .ai/decisions/decisions.md and propose removing, merging, or tightening stale, duplicate, or low-value entries. Only apply changes after explicit user confirmation.',
+    content: `---
+name: decision-curate
+description: Audit .ai/decisions/decisions.md and propose removing, merging, or tightening stale, duplicate, or low-value entries. Only apply changes after explicit user confirmation.
+user-invocable: true
+---
+
+Purpose
+
+Keep .ai/decisions/decisions.md narrow enough that future exploration can find stable constraints quickly and trace historical changes only when needed. Prune assertively; the file is a curated constraint set, not a complete memory.
+
+${WORKSPACE_CONTEXT_GUIDANCE}
+
+Workflow
+
+1. Read .ai/decisions/decisions.md.
+2. Inspect the current codebase only as needed to judge whether each decision still represents a live constraint.
+3. Classify each entry as keep active, tighten, supersede, deprecate, merge, or remove.
+4. Bias toward removal or merge when an entry is stale, duplicate, too local, too vague, common knowledge, a bug lesson, kept for possible future value, or no longer changes future implementation choices. Preserve a concise superseded entry only when it explains an active decision's lineage.
+5. When evidence does not show that an entry changes a concrete future choice, classify it as remove, merge, deprecate, or tighten; do not keep it by default.
+6. Present a review list with every entry, its classification, and a short reason.
+7. Flag every pair of active entries whose Scope and Applies when conditions overlap but whose decisions conflict. Propose a resolution, a narrower applicability condition, or supersession.
+8. When proposing tighten, supersede, deprecate, merge, or remove, quote or summarize the exact affected entry so the user can approve safely.
+9. Do NOT modify the file yet. Wait for explicit user confirmation on each proposed change set.
+10. After confirmation, apply only the approved edits and preserve unrelated entries.
+11. Summarize what was kept active, tightened, superseded, deprecated, merged, removed, and why.
+
+Retention Standard
+
+Keep an active entry only if it still acts as a durable project constraint or explains an intentional choice a future task could otherwise get wrong. It must change a future choice, not merely remind developers to avoid a past mistake. Possible future usefulness is not enough. Keep a superseded entry only when its link to an active successor explains material history.
+
+Removal Candidates
+
+* one-off implementation details
+* bug lessons, postmortem notes, or reminders to be careful
+* common engineering practices
+* decisions already enforced clearly by code, tests, or tooling
+* duplicate or near-duplicate entries
+* vague notes that do not change future choices
+* entries preserved for possible future usefulness rather than a concrete future choice
+* constraints invalidated by later refactors, simplifications, or performance work
+* historical context that belongs in task or bug archives instead
+* active entries with no Scope, no applicable condition where one is needed, or a conflict with another active entry
+
+Requirements
+
+* Default to proposing, not editing
+* Never remove or rewrite an entry without explicit user confirmation
+* Prefer deleting or merging low-value entries over rewriting them into longer prose
+* Do not keep an entry merely because removal feels risky; state the risk and propose the smallest removal, merge, or narrowing that preserves any real constraint
+* Do not automatically add metadata to legacy entries; propose targeted migration only when it materially improves retrieval
+* Keep the remaining file concise and high-signal
+`,
+  },
 };
 
 const LEGACY_MANAGED_SKILL_NAMES = [
@@ -1133,9 +1392,6 @@ const LEGACY_MANAGED_SKILL_NAMES = [
   'effort-explore',
   'effort-spec',
   'effort-implement',
-  'decision-log',
-  'decision-sweep-weekly',
-  'decision-curate',
 ];
 const MANAGED_SKILL_NAMES = [
   ...Object.values(SKILLS).map((skill) => skill.name),
@@ -1396,6 +1652,8 @@ export function init(cwd, { fs, path, log }) {
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
+  other: decision-log | decision-curate
+  sweep: decision-sweep-weekly (on demand)
 
 Skills are installed globally per machine:
   task skill install <agents|claude|codex>`);
@@ -1422,6 +1680,8 @@ export function refresh(cwd, { fs, path, log }) {
   task:  task-explore -> task-implement -> task-audit (optional, risk-triggered)
   bug:   bug-explore -> bug-fix -> bug-audit (optional, risk-triggered)
   cancel: task-cancel | bug-cancel
+  other: decision-log | decision-curate
+  sweep: decision-sweep-weekly (on demand)
 
 Skills are installed globally per machine:
   task skill install <agents|claude|codex>`);

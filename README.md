@@ -33,6 +33,8 @@ In Claude Code, invoke a skill as `/skill-name`; in Codex, use `$skill-name`.
 | Complete a small task or fix | `task-fast` |
 | Deliver non-trivial new or changed behavior | `task-explore` -> `task-implement` -> optional `task-audit` |
 | Fix a non-trivial bug | `bug-explore` -> `bug-fix` -> optional `bug-audit` |
+| Record a durable project constraint | `decision-log` |
+| Clean up decision memory | `decision-curate` or `decision-sweep-weekly` |
 | Abandon an attempt | `task-cancel` or `bug-cancel` |
 
 Every task and bug entry starts with an evidence-based direct-completion check. When the request is explicit, the patch is genuinely narrow, project conventions determine the approach, and focused validation is available, the skill completes and verifies the change without creating an artifact. Otherwise, `task-fast` automatically continues with full task or bug exploration; it does not rely on the user's estimate that the work is small.
@@ -40,6 +42,10 @@ Every task and bug entry starts with an evidence-based direct-completion check. 
 Non-direct exploration uses the pinned Grilling protocol: decisions form a tree, and each round asks the independent frontier in rounds with a recommended answer. Repository facts are investigated by the agent rather than pushed back to the user.
 
 Task and bug briefs are concise execution contracts. `task-implement` and `bug-fix` validate before moving completed briefs into `archive/`. Audits are independent, evidence-seeking reviews and are optional unless the risk warrants one.
+
+## Decision Memory
+
+`.ai/decisions/decisions.md` stores only durable project constraints that change a specific future choice. Use `decision-log` to add a confirmed constraint. Use `decision-curate` to remove or tighten stale, duplicate, or low-value entries, and `decision-sweep-weekly` as an on-demand review of recent task and bug work. A zero-entry result is valid.
 
 ## Commands
 
